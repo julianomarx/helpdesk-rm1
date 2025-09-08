@@ -16,21 +16,28 @@ class StatusEnum(str, Enum):
 class RoleEnum(str, Enum):
     admin = "admin"
     agent = "agent"
-    client = "client"
+    client_manager = "client_manager"
+    client_receptionist = "client_receptionist"
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
+class TokenData(BaseModel):
+    sub: str | None = None
+    
 # Modelos de Usuários - ENTRADA E SAÍDA 
 class UserCreate(BaseModel):
     name: str = Field(..., example="Juliano")
-    email: EmailStr = Field(..., example="email@example.com.br")
-    password: str = Field(..., example="StrongPassword@123456")
-    role: RoleEnum = Field(..., example="client")
+    email: EmailStr = Field(..., example="email@gmail.com")
+    password: str = Field(..., example="password")
+    role: RoleEnum = Field(..., example="client_manager")
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = Field(None, example="Juliano")
-    email: Optional[EmailStr] = Field(None, example="Juliano@example.com.br")
-    password: Optional[str] = Field(None, example="password")
-    role: Optional[RoleEnum] = Field(None, example="client")
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[RoleEnum] = None
 
 class User(BaseModel):
     id: int
@@ -40,15 +47,26 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True  # permite converter ORM → Schema
-    
+
+# Modelos de Hotel - ENTRADA E SAÍDA  
+class HotelBase(BaseModel):
+    code : str = Field(..., example="HXXXX")
+    name : str = Field(..., example="Hotel Ibis Canoas Shopping")
+
+class Hotel(HotelBase):
+    id : int = Field(..., example=1)
+
+    class Config:
+        from_attributes = True  # permite converter ORM → Schema
+
 # Modelos de Tickets - ENTRADA E SAÍDA 
 class TicketCreate(BaseModel):
     title: str = Field(..., example="Computador da recepção não está imprimindo")
-    description: str = Field(..., example="Boa tarde, o computador W-H5670-FO4 não está mais imprimindo. Poderiam verificar por favor?")
+    description: str = Field(..., example="Descrição do chamado")
     priority: PriorityEnum = Field(PriorityEnum.low, example="low")
-    status: StatusEnum = Field(StatusEnum.open, example="open") #preciso mudar aqui pra sempre abrir como Open
+    status: StatusEnum = StatusEnum.open #default sempre Open
     created_by: int = Field(..., example=1)
-    assigned_to: Optional[int] = None
+    assigned_to: Optional[int] = Field(None, example=1)
 
 class Ticket(TicketCreate):
     id: int

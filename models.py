@@ -8,7 +8,8 @@ from database import Base
 class RoleEnum(str, PyEnum):
     admin = "admin"
     agent = "agent"
-    client = "client"
+    client_manager = "client_manager"
+    client_receptionist = 'client_receptionist'
 
 class StatusEnum(str, PyEnum):
     open = "open"
@@ -20,6 +21,13 @@ class PriorityEnum(str, PyEnum):
     medium = "medium"
     high = "high"
 
+class Hotel(Base):
+    __tablename__ = "hotels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(10), unique=True, index=True, nullable=False)
+    name = Column(String(100), nullable=False)
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,9 +35,17 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(SAEnum(RoleEnum), nullable=False, default=RoleEnum.client)
+    role = Column(SAEnum(RoleEnum), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    #tickets criados pelo usuário 
+    created_tickets = relationship("Ticket", back_populates="creator", foreign_keys="Ticket.created_by")
+
+    #tickets atribuídos ao usuário
+    assigned_tickets = relationship("Ticket", back_populates="assignee", foreign_keys="Ticket.assigned_to")
+
+    comments = relationship("TicketComment", back_populates="author", cascade="all, delete-orphan")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -44,8 +60,12 @@ class Ticket(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    creator = relationship("User", foreign_keys=[created_by])
-    assignee = relationship("User", foreign_keys=[assigned_to])
+    #relacionamentos bidirecionais
+    creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
+    assignee = relationship("User", back_populates="assigned_tickets", foreign_keys=[assigned_to])
+
+    #relaiconamento de cometário
+    comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
 
 class TicketComment(Base):
     __tablename__ = "ticket_comments"
@@ -55,3 +75,6 @@ class TicketComment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     comment = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    ticket = relationship("Ticket", back_populates="comments")
+    author = relationship("User", back_populates="comments")
