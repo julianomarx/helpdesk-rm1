@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 
-#Enums Pydantic
+# Enums
 class PriorityEnum(str, Enum):
     low = "low"
     medium = "medium"
@@ -12,6 +12,7 @@ class StatusEnum(str, Enum):
     open = "open"
     in_progress = "in_progress"
     closed = "closed"
+    awaiting_confirmation = "awaiting_confirmation"
 
 class RoleEnum(str, Enum):
     admin = "admin"
@@ -19,19 +20,38 @@ class RoleEnum(str, Enum):
     client_manager = "client_manager"
     client_receptionist = "client_receptionist"
 
+# Token
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    sub: str | None = None
-    
-# Modelos de Usuários - ENTRADA E SAÍDA 
+    sub: Optional[str] = None
+
+# --------------------
+# HOTÉIS
+# --------------------
+class HotelBase(BaseModel):
+    code: str = Field(..., example="H8273")
+    name: str = Field(..., example="Hotel Ibis Canoas Shopping")
+
+class HotelCreate(HotelBase):
+    pass
+
+class Hotel(HotelBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# --------------------
+# USUÁRIOS
+# --------------------
 class UserCreate(BaseModel):
-    name: str = Field(..., example="Juliano")
-    email: EmailStr = Field(..., example="email@gmail.com")
-    password: str = Field(..., example="password")
-    role: RoleEnum = Field(..., example="client_manager")
+    name: str
+    email: EmailStr
+    password: str
+    role: RoleEnum
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -46,27 +66,36 @@ class User(BaseModel):
     role: RoleEnum
 
     class Config:
-        from_attributes = True  # permite converter ORM → Schema
+        from_attributes = True
 
-# Modelos de Hotel - ENTRADA E SAÍDA  
-class HotelBase(BaseModel):
-    code : str = Field(..., example="HXXXX")
-    name : str = Field(..., example="Hotel Ibis Canoas Shopping")
-
-class Hotel(HotelBase):
-    id : int = Field(..., example=1)
+class UserHotelOut(BaseModel):
+    id: int
+    hotel: Hotel
 
     class Config:
-        from_attributes = True  # permite converter ORM → Schema
+        from_attributes = True
 
-# Modelos de Tickets - ENTRADA E SAÍDA 
+class UserOut(User):
+    hotels: List[UserHotelOut] = []
+
+# --------------------
+# TICKETS
+# --------------------
 class TicketCreate(BaseModel):
-    title: str = Field(..., example="Computador da recepção não está imprimindo")
-    description: str = Field(..., example="Descrição do chamado")
-    priority: PriorityEnum = Field(PriorityEnum.low, example="low")
-    status: StatusEnum = StatusEnum.open #default sempre Open
-    created_by: int = Field(..., example=1)
-    assigned_to: Optional[int] = Field(None, example=1)
+    title: str
+    description: str
+    priority: PriorityEnum = PriorityEnum.low
+    status: StatusEnum = StatusEnum.open
+    created_by: int
+    assigned_to: Optional[int] = None
+    hotel_id: int
+
+class TicketUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[PriorityEnum] = None
+    status: Optional[StatusEnum] = None
+    assigned_to: Optional[int] = None
 
 class Ticket(TicketCreate):
     id: int
@@ -74,14 +103,24 @@ class Ticket(TicketCreate):
     class Config:
         from_attributes = True
 
-# Modelos de Comentários - ENTRADA E SAÍDA 
+class TicketOut(Ticket):
+    hotel: Hotel
+    creator: User
+    assignee: Optional[User] = None
+
+# --------------------
+# COMENTÁRIOS
+# --------------------
 class CommentCreate(BaseModel):
-    ticket_id: int = Field(..., example=1)
-    user_id: int = Field(..., example=1)
-    comment: str = Field(..., example="Poderiam nos dar mais detalhes do erro?")
+    ticket_id: int
+    user_id: int
+    comment: str
 
 class Comment(CommentCreate):
     id: int
 
-    class Config: 
+    class Config:
         from_attributes = True
+
+class CommentOut(Comment):
+    author: User

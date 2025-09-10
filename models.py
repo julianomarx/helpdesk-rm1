@@ -28,6 +28,10 @@ class Hotel(Base):
     code = Column(String(10), unique=True, index=True, nullable=False)
     name = Column(String(100), nullable=False)
 
+    #relação com hotel.tickets
+    tickets = relationship("Ticket", back_populates="hotel", cascade="all, delete-orphan")
+    users = relationship("UserHotel", back_populates="hotel", cascade="all, delete-orphan")
+
 class User(Base):
     __tablename__ = "users"
 
@@ -39,13 +43,11 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    #tickets criados pelo usuário 
+    #relacionamentos
     created_tickets = relationship("Ticket", back_populates="creator", foreign_keys="Ticket.created_by")
-
-    #tickets atribuídos ao usuário
     assigned_tickets = relationship("Ticket", back_populates="assignee", foreign_keys="Ticket.assigned_to")
-
     comments = relationship("TicketComment", back_populates="author", cascade="all, delete-orphan")
+    hotels = relationship("UserHotel", back_populates="user", cascade="all, delete-orphan")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -57,12 +59,15 @@ class Ticket(Base):
     priority = Column(SAEnum(PriorityEnum), nullable=False, default=PriorityEnum.low)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     #relacionamentos bidirecionais
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
     assignee = relationship("User", back_populates="assigned_tickets", foreign_keys=[assigned_to])
+    hotel = relationship("Hotel", back_populates="tickets")
+
 
     #relaiconamento de cometário
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
@@ -78,3 +83,13 @@ class TicketComment(Base):
 
     ticket = relationship("Ticket", back_populates="comments")
     author = relationship("User", back_populates="comments")
+
+class UserHotel(Base):
+    __tablename__ = "user_hotels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+
+    user = relationship("User", back_populates="hotels")
+    hotel = relationship("Hotel", back_populates="users")
