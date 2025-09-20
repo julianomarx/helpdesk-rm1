@@ -11,9 +11,15 @@ class RoleEnum(str, PyEnum):
     client_manager = "client_manager"
     client_receptionist = 'client_receptionist'
 
+class ProgressEnum(str, PyEnum):
+    waiting = "waiting"
+    in_progress = "in_progress"
+    feedback = "feedback"
+    awaiting_confirmation = "awaiting_confirmation"
+    done = "done"
+
 class StatusEnum(str, PyEnum):
     open = "open"
-    in_progress = "in_progress"
     closed = "closed"
 
 class PriorityEnum(str, PyEnum):
@@ -56,6 +62,7 @@ class Ticket(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     status = Column(SAEnum(StatusEnum), nullable=False, default=StatusEnum.open)
+    progress = Column(SAEnum(ProgressEnum), nullable=False, default=ProgressEnum.waiting)
     priority = Column(SAEnum(PriorityEnum), nullable=False, default=PriorityEnum.low)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)

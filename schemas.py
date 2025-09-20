@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
+from datetime import datetime
 from enum import Enum
 
 # Enums
@@ -10,9 +11,14 @@ class PriorityEnum(str, Enum):
 
 class StatusEnum(str, Enum):
     open = "open"
-    in_progress = "in_progress"
     closed = "closed"
+
+class ProgressEnum(str, Enum):
+    waiting = "waiting"
+    in_progress = "in_progress"
+    feedback = "feedback"
     awaiting_confirmation = "awaiting_confirmation"
+    done = "done"
 
 class RoleEnum(str, Enum):
     admin = "admin"
@@ -86,6 +92,7 @@ class TicketCreate(BaseModel):
     description: str
     priority: PriorityEnum = PriorityEnum.low
     status: StatusEnum = StatusEnum.open
+    progress: ProgressEnum = ProgressEnum.waiting
     created_by: int
     assigned_to: Optional[int] = None
     hotel_id: int
@@ -95,10 +102,14 @@ class TicketUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     status: Optional[StatusEnum] = None
+    progress: Optional[ProgressEnum] = None
+    progress: Optional[ProgressEnum] = None
     assigned_to: Optional[int] = None
 
 class Ticket(TicketCreate):
     id: int
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
