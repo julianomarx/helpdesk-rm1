@@ -84,6 +84,28 @@ def create_access_token(user: UserModel) -> str:
     {"id": uh.hotel.id, "code": uh.hotel.code, "name": uh.hotel.name}
     for uh in user.hotels
     ]
+    
+    role_menus = {
+        "admin": [
+            {"label": "Dashboard", "page": "dashboard"},
+            {"label": "Usuários", "page": "users"},
+            {"label": "Criar Usuário", "page": "create-user"},
+            {"label": "Chamados", "page": "tickets"},
+        ],
+        "agent": [
+            {"label": "Chamados", "page": "tickets"},
+        ],
+        "client_manager": [
+            {"label": "Dashboard", "page": "dashboard"},
+            {"label": "Abrir chamado", "page": "create-ticket"},
+            {"label": "Meus chamados", "page": "tickets"},
+            {"label": "Gerenciar usuários", "page": "users"},
+        ],
+        "client_receptionist": [
+            {"label": "Abrir chamado", "page": "create-ticket"},
+            {"label": "Meus chamados", "page": "tickets"},
+        ],
+    }
 
     to_encode = {
         "sub": str(user.id),
@@ -91,7 +113,8 @@ def create_access_token(user: UserModel) -> str:
         "email": user.email,
         "iat": now,
         "exp": expire,
-        "hotels": user_hotels
+        "hotels": user_hotels,
+        "menus": role_menus.get(user.role, [])
     }
 
     encoded_jwt = jwt.encode(

@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import User, UserCreate, UserUpdate
+from schemas import User, UserCreate, UserUpdate, UserCreateWithHotels
 from database import get_db
 from auth_utils import get_current_user
 
@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=User)
-def create_user(user: UserCreate, hotel_ids: Optional[List[int]], db: Session = Depends(get_db)):
+def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db)):
     existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
 
     if existing_user:
@@ -30,9 +30,10 @@ def create_user(user: UserCreate, hotel_ids: Optional[List[int]], db: Session = 
         role=user.role
     )
     db.add(db_user)
+    db.flush()
 
-    if hotel_ids:
-        for hid in hotel_ids:
+    if user.hotel_ids:
+        for hid in user.hotel_ids:
             db_user_hotel = UserHotelModel(user_id=db_user.id, hotel_id=hid)
             db.add(db_user_hotel)
     
