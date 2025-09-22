@@ -80,12 +80,18 @@ def create_access_token(user: UserModel) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")))
 
+    user_hotels = [
+    {"id": uh.hotel.id, "code": uh.hotel.code, "name": uh.hotel.name}
+    for uh in user.hotels
+    ]
+
     to_encode = {
         "sub": str(user.id),
         "role": user.role,
         "email": user.email,
         "iat": now,
-        "exp": expire
+        "exp": expire,
+        "hotels": user_hotels
     }
 
     encoded_jwt = jwt.encode(

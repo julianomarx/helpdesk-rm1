@@ -30,7 +30,19 @@ def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_u
 
 @router.get("/", response_model=List[TicketOut])
 def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    tickets = db.query(TicketModel).all()
+    
+    query = db.query(TicketModel)
+    
+    if current_user.role not in ["admin", "agent"]:
+        
+        #Pega apenas os hoteis que o cabra tem acesso
+        
+        print(current_user.hotels)
+        
+        hotel_ids = [uh.hotel.id for uh in current_user.hotels]
+        query = query.filter(TicketModel.hotel_id.in_(hotel_ids))
+    
+    tickets = query.all()
     return tickets
 
 @router.get("/{ticket_id}", response_model=TicketSchema)

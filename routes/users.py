@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 
-from models import User as UserModel
+from models import User as UserModel, UserHotel as UserHotelModel
 from schemas import User, UserCreate, UserUpdate
 from database import get_db
 from auth_utils import get_current_user
@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=User)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(user: UserCreate, hotel_ids: Optional[List[int]], db: Session = Depends(get_db)):
     existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
 
     if existing_user:
@@ -31,14 +31,21 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(db_user)
 
+    if hotel_ids:
+        for hid in hotel_ids:
+            db_user_hotel = UserHotelModel(user_id=db_user.id, hotel_id=hid)
+            db.add(db_user_hotel)
+    
     try:
         db.commit()
         db.refresh(db_user)
-
+        
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Email Já cadastrado")
+        raise HTTPException(status_code=400, detail="Erro ao criar usuário ou associação com hotéis")
+        
     return db_user
+    
 
 @router.get("/", response_model=List[User])
 def list_users(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
