@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from models import Ticket as TicketModel
 from models import User as UserModel
-from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate
+from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
 from database import get_db
 from auth_utils import get_current_user
 
@@ -45,11 +45,14 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
     tickets = query.all()
     return tickets
 
-@router.get("/{ticket_id}", response_model=TicketSchema)
+@router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    comments = ticket.comments
+    
     return ticket
 
 @router.put("/{ticket_id}", response_model=TicketOut)

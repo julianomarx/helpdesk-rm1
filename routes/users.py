@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import User, UserCreate, UserUpdate, UserCreateWithHotels
+from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, UserOut
 from database import get_db
 from auth_utils import get_current_user
 
@@ -100,3 +100,25 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: UserM
     db.delete(user)
     db.commit()
     return { "message": f"Usuário {user_id} - {user.name} - foi deletado com sucesso." }
+
+@router.put("/{user_id}/hotels", response_model=UserOut)
+def update_user_hotels(user_id: int, hotels_update: UserHotelsUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    db.query(UserHotelModel).filter(UserHotelModel.user_id == user_id).delete()
+    
+    for hid in hotels_update.hotel_ids:
+        user_hotel = UserHotelModel(user_id=user_id, hotel_id=hid)
+        db.add(user_hotel)
+        
+    db.commit()
+    db.refresh(user)
+    
+    return UserOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role
+    )

@@ -100,6 +100,7 @@ def create_access_token(user: UserModel) -> str:
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Abrir chamado", "page": "create-ticket"},
             {"label": "Meus chamados", "page": "tickets"},
+            {"label": "Criar usuário", "page": "create-user"},
             {"label": "Gerenciar usuários", "page": "users"},
         ],
         "client_receptionist": [

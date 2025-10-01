@@ -80,6 +80,11 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True
+        
+
+class UserHotelsUpdate(BaseModel):
+    hotel_ids: List[int]
+
 
 class UserHotelOut(BaseModel):
     id: int
@@ -90,6 +95,25 @@ class UserHotelOut(BaseModel):
 
 class UserOut(User):
     hotels: List[UserHotelOut] = []
+    
+    
+# --------------------
+# COMENTÁRIOS
+# --------------------
+class CommentCreate(BaseModel):
+    ticket_id: int
+    user_id: int
+    comment: str
+
+class Comment(CommentCreate):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class CommentOut(Comment):
+    author: User
+
 
 # --------------------
 # TICKETS
@@ -125,20 +149,7 @@ class TicketOut(Ticket):
     hotel: Hotel
     creator: User
     assignee: Optional[User] = None
+    
+class TicketWithComments(TicketOut):
+    comments: List[CommentOut] = []
 
-# --------------------
-# COMENTÁRIOS
-# --------------------
-class CommentCreate(BaseModel):
-    ticket_id: int
-    user_id: int
-    comment: str
-
-class Comment(CommentCreate):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-class CommentOut(Comment):
-    author: User
