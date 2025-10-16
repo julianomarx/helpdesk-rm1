@@ -3,7 +3,7 @@ from database import engine, Base
 from routes import users, tickets, comments, auth, hotels  # sua pasta routes
 from fastapi.middleware.cors import CORSMiddleware
 
-# Cria todas as tabelas que ainda não existem
+# Cria todas as tabelas que ainda não existem 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Helpdesk Portal")
