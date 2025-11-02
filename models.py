@@ -54,12 +54,13 @@ class User(Base):
     assigned_tickets = relationship("Ticket", back_populates="assignee", foreign_keys="Ticket.assigned_to")
     comments = relationship("TicketComment", back_populates="author", cascade="all, delete-orphan")
     hotels = relationship("UserHotel", back_populates="user", cascade="all, delete-orphan")
+    logs = relationship("TicketLog", back_populates="user", cascade="all, delete-orphan")
 
 class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255), nullable=False)
+    title = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     status = Column(SAEnum(StatusEnum), nullable=False, default=StatusEnum.open)
     progress = Column(SAEnum(ProgressEnum), nullable=False, default=ProgressEnum.waiting)
@@ -74,9 +75,7 @@ class Ticket(Base):
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
     assignee = relationship("User", back_populates="assigned_tickets", foreign_keys=[assigned_to])
     hotel = relationship("Hotel", back_populates="tickets")
-
-
-    #relaiconamento de cometário
+    logs = relationship("TicketLog", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
 
 class TicketComment(Base):
@@ -90,6 +89,19 @@ class TicketComment(Base):
 
     ticket = relationship("Ticket", back_populates="comments")
     author = relationship("User", back_populates="comments")
+    
+class TicketLog(Base):
+    __tablename__ = "ticket_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String(50), nullable=False)
+    value = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    ticket = relationship("Ticket", back_populates="logs")
+    user = relationship("User", back_populates="logs")
 
 class UserHotel(Base):
     __tablename__ = "user_hotels"
