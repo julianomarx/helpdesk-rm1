@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from models import Ticket as TicketModel
+from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel
 from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
+from enums import LogActionEnum
 from database import get_db
 from auth_utils import get_current_user
 
@@ -88,4 +89,31 @@ def update_ticket(ticket_id: int, ticket_update: TicketUpdate, db: Session = Dep
 
     db.commit()
     db.refresh(ticket)
+    return ticket
+
+@router.put("/{ticket_id}/assign_team/{team_id}", response_model=TicketOut)
+def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket não encontrado")
+    
+    team = db.query(TeamModel).filter(TeamModel.id == team_id).first()
+    if not team:
+        raise HTTPException(404, "Equipe não encontrada")
+    
+    ticket.assigned_team_id = team_id
+    
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.team_changed.value,
+        value=team_id
+    )
+    
+    db.add(log)
+    db.commit()
+    
+    db.refresh(ticket)
+    
     return ticket

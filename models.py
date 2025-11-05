@@ -30,8 +30,9 @@ class PriorityEnum(str, PyEnum):
 class LogActionEnum(str, PyEnum):
     created = "created"
     status_changed = "status_changed"
-    priority_changed = "priority_changed"
     assigned_changed = "assigned_changed"
+    priority_changed = "priority_changed"
+    team_changed = "team_changed"
 
 class Hotel(Base):
     __tablename__ = "hotels"
