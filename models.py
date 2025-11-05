@@ -26,6 +26,12 @@ class PriorityEnum(str, PyEnum):
     low = "low"
     medium = "medium"
     high = "high"
+    
+class LogActionEnum(str, PyEnum):
+    created = "created"
+    status_changed = "status_changed"
+    priority_changed = "priority_changed"
+    assigned_changed = "assigned_changed"
 
 class Hotel(Base):
     __tablename__ = "hotels"
@@ -55,6 +61,7 @@ class User(Base):
     comments = relationship("TicketComment", back_populates="author", cascade="all, delete-orphan")
     hotels = relationship("UserHotel", back_populates="user", cascade="all, delete-orphan")
     logs = relationship("TicketLog", back_populates="user", cascade="all, delete-orphan")
+    teams = relationship("UserTeam", back_populates="user")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -70,6 +77,7 @@ class Ticket(Base):
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    assigned_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
 
     #relacionamentos bidirecionais
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
@@ -77,6 +85,7 @@ class Ticket(Base):
     hotel = relationship("Hotel", back_populates="tickets")
     logs = relationship("TicketLog", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
+    assigned_team = relationship("Team", back_populates="tickets")
 
 class TicketComment(Base):
     __tablename__ = "ticket_comments"
@@ -112,3 +121,22 @@ class UserHotel(Base):
 
     user = relationship("User", back_populates="hotels")
     hotel = relationship("Hotel", back_populates="users")
+    
+class Team(Base):
+    __tablename__ = "teams"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    
+    users = relationship("UserTeam", back_populates="team", cascade="all, delete-orphan")
+    tickets = relationship("Ticket", back_populates="assigned_team")
+    
+class UserTeam(Base):
+    __tablename__ = "user_teams"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    
+    user = relationship("User", back_populates="teams")
+    team = relationship("Team", back_populates="users")
