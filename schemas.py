@@ -115,6 +115,17 @@ class Comment(CommentCreate):
 class CommentOut(Comment):
     author: User
     
+# --------------------
+# TEAMS
+# --------------------
+class TeamBase(BaseModel):
+    name: str
+
+class Team(TeamBase):
+    id: int
+
+    class Config:
+        from_attributes = True
 
 
 # --------------------
@@ -135,8 +146,7 @@ class TicketUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     status: Optional[StatusEnum] = None
-    progress: Optional[ProgressEnum] = None
-    progress: Optional[ProgressEnum] = None
+    progress: Optional[ProgressEnum] = None   # <--- tira o duplicado
     assigned_to: Optional[int] = None
 
 class Ticket(TicketCreate):
@@ -151,7 +161,8 @@ class TicketOut(Ticket):
     hotel: Hotel
     creator: User
     assignee: Optional[User] = None
-    
-class TicketWithComments(TicketOut):
-    comments: List[CommentOut] = []
+    assigned_team: Optional[Team] = None
 
+
+class TicketWithComments(TicketOut):   # só AGORA pode
+    comments: List[CommentOut] = []

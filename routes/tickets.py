@@ -4,7 +4,8 @@ from typing import List
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel
 from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
-from enums import LogActionEnum
+from models import LogActionEnum
+
 from database import get_db
 from auth_utils import get_current_user
 
