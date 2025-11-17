@@ -126,6 +126,53 @@ class Team(TeamBase):
 
     class Config:
         from_attributes = True
+        
+        
+# --------------------
+# Category
+# --------------------
+        
+class CategoryBase(BaseModel):
+    name: str
+    team_id: int
+    
+class CategoryCreate(CategoryBase):
+    pass
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    team_id: Optional[int] = None
+
+class Category(CategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+        
+        
+# --------------------
+# Sub-categories
+# --------------------
+
+class SubCategoryBase(BaseModel):
+    name: str
+    category_id: int
+
+class SubCategoryCreate(SubCategoryBase):
+    pass
+
+class SubCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    category_id: Optional[int] = None
+
+class SubCategory(SubCategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class CategoryWithSubcategories(Category):
+    subcategories: List[SubCategory] = []
 
 
 # --------------------
@@ -135,24 +182,27 @@ class TicketCreate(BaseModel):
     title: str
     description: str
     priority: PriorityEnum = PriorityEnum.low
-    status: StatusEnum = StatusEnum.open
-    progress: ProgressEnum = ProgressEnum.waiting
-    created_by: int
-    assigned_to: Optional[int] = None
     hotel_id: int
+    category_id: int
+    subcategory_id: int
 
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
     status: Optional[StatusEnum] = None
-    progress: Optional[ProgressEnum] = None   # <--- tira o duplicado
+    progress: Optional[ProgressEnum] = None  
     assigned_to: Optional[int] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
 
 class Ticket(TicketCreate):
     id: int
     created_at: datetime
     updated_at: datetime
+    progress: ProgressEnum = ProgressEnum.waiting
+    status: StatusEnum = StatusEnum.open
+    assigned_team_id: int
 
     class Config:
         from_attributes = True
@@ -162,7 +212,10 @@ class TicketOut(Ticket):
     creator: User
     assignee: Optional[User] = None
     assigned_team: Optional[Team] = None
+    category: Optional[Category] = None
+    subcategory: Optional[SubCategory] = None
 
 
-class TicketWithComments(TicketOut):   # só AGORA pode
+class TicketWithComments(TicketOut):  
     comments: List[CommentOut] = []
+

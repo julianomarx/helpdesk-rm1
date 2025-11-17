@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
-from models import User as UserModel
+from models import User as UserModel, Category as CategoryModel
 from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
+from schemas import StatusEnum, ProgressEnum
+
 from models import LogActionEnum
 
 from database import get_db
@@ -14,16 +16,26 @@ router = APIRouter(
     tags=["tickets"]
 )
 
+def get_team_for_category(category_id: int, db: Session) -> int:
+    category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
+    return category.team_id if category else None
+
 @router.post("/", response_model=TicketSchema)
 def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    
+    assigned_team_id = get_team_for_category(ticket.category_id, db)
+    
     db_ticket = TicketModel(
         title=ticket.title,
         description=ticket.description,
-        status=ticket.status,
+        status=StatusEnum.open.value,       
+        progress=ProgressEnum.waiting.value, 
         priority=ticket.priority,
-        created_by=ticket.created_by,
-        assigned_to=ticket.assigned_to,
-        hotel_id=ticket.hotel_id
+        created_by=current_user.id,
+        hotel_id=ticket.hotel_id,
+        category_id=ticket.category_id,
+        subcategory_id=ticket.subcategory_id,
+        assigned_team_id=assigned_team_id
     )
     db.add(db_ticket)
     db.commit()

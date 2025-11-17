@@ -85,6 +85,48 @@ def create_access_token(user: UserModel) -> str:
     for uh in user.hotels
     ]
     
+    categories = [
+        {"id": 1, "name": "TI"},
+        {"id": 2, "name": "PMS"},
+        {"id": 3, "name": "FISCAL"},
+        {"id": 4, "name": "PDV"},
+        {"id": 5, "name": "Usuários Nominais"},
+    ]
+    
+    subcategories = [
+        {"id": 19, "name": "Monitores e Periféricos", "category_id": 1},
+        {"id": 20, "name": "Usuários/Email (Acessos, Senhas, Opera)", "category_id": 1},
+        {"id": 21, "name": "Impressoras e Scanners", "category_id": 1},
+        {"id": 22, "name": "Impressora Fiscal (TÉRMICA)", "category_id": 1},
+        {"id": 23, "name": "Rede e Internet (ADM / WiFi)", "category_id": 1},
+        {"id": 24, "name": "Infraestrutura (CPD e Equipamentos)", "category_id": 1},
+        {"id": 25, "name": "Sistema de Chaves Eletrônicas", "category_id": 1},
+        {"id": 26, "name": "Sistema de Ponto", "category_id": 1},
+        {"id": 27, "name": "Outros", "category_id": 1},
+
+        {"id": 28, "name": "Relatórios", "category_id": 2},
+        {"id": 29, "name": "Permissões", "category_id": 2},
+        {"id": 30, "name": "Problemas Gerais", "category_id": 2},
+        {"id": 31, "name": "Chaves Magnetizadas pelo Opera", "category_id": 2},
+
+        {"id": 32, "name": "Notas", "category_id": 3},
+        {"id": 33, "name": "Boletos", "category_id": 3},
+        {"id": 34, "name": "Outros", "category_id": 3},
+
+        {"id": 35, "name": "Cadastro de Itens", "category_id": 4},
+        {"id": 36, "name": "Busca de Hóspedes por Apartamentos", "category_id": 4},
+        {"id": 37, "name": "Impressão", "category_id": 4},
+        {"id": 38, "name": "Problemas Gerais", "category_id": 4},
+        {"id": 39, "name": "Outros", "category_id": 4},
+
+        {"id": 40, "name": "Novo usuário", "category_id": 5},
+        {"id": 41, "name": "Inativar usuário", "category_id": 5},
+        {"id": 42, "name": "Substituição de usuário", "category_id": 5},
+        {"id": 43, "name": "Problemas de acesso/permissões/email", "category_id": 5},
+        {"id": 44, "name": "Outros", "category_id": 5}
+    ]
+
+
     role_menus = {
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
@@ -116,6 +158,8 @@ def create_access_token(user: UserModel) -> str:
         "iat": now,
         "exp": expire,
         "hotels": user_hotels,
+        "categories": categories,
+        "subcategories": subcategories,
         "menus": role_menus.get(user.role, [])
     }
 

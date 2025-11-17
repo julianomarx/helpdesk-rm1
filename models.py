@@ -79,6 +79,8 @@ class Ticket(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     assigned_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    subcategory_id = Column(Integer, ForeignKey("subcategories.id"), nullable=True)
 
     #relacionamentos bidirecionais
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
@@ -87,6 +89,30 @@ class Ticket(Base):
     logs = relationship("TicketLog", back_populates="ticket", cascade="all, delete-orphan")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
     assigned_team = relationship("Team", back_populates="tickets")
+    category = relationship("Category", back_populates="tickets")
+    subcategory = relationship("SubCategory", back_populates="tickets")
+    
+class Category(Base):
+    __tablename__ = "categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    
+    team = relationship("Team", back_populates="categories")
+    tickets = relationship("Ticket", back_populates="category")
+    subcategories = relationship("SubCategory", back_populates="category", cascade="all, delete-orphan")
+
+class SubCategory(Base):
+    __tablename__ = "subcategories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    
+    tickets = relationship("Ticket", back_populates="subcategory")
+    category = relationship("Category", back_populates="subcategories")
+   
 
 class TicketComment(Base):
     __tablename__ = "ticket_comments"
@@ -131,6 +157,7 @@ class Team(Base):
     
     users = relationship("UserTeam", back_populates="team", cascade="all, delete-orphan")
     tickets = relationship("Ticket", back_populates="assigned_team")
+    categories = relationship("Category", back_populates="team")
     
 class UserTeam(Base):
     __tablename__ = "user_teams"
