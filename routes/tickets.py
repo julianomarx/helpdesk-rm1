@@ -70,38 +70,24 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: User
     return ticket
 
 @router.put("/{ticket_id}", response_model=TicketOut)
-def update_ticket(ticket_id: int, ticket_update: TicketUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    ticket = db.query(TicketModel).filter((TicketModel.id == ticket_id)).first()
+def update_ticket(
+    ticket_id: int, 
+    ticket_update: TicketUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
     if not ticket:
-        raise HTTPException(status_code=404, detail="Chamado não localizado")
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    data = ticket_update.model_dump(exclude_unset=True) 
-
-    #falta fazer validações de segurança -> fiz este serviço de preguiçoso mas depois eu arrumo
-
-    if "title" in data and data["title"] == ticket.title:
-        data.pop("title")
-
-    if "description" in data and data["description"] == ticket.description:
-        data.pop("description")
-
-    if "priority" in data and data["priority"] == ticket.priority:
-        data.pop("priority")
-
-    if "status" in data and data["status"] == ticket.status:    
-        data.pop("status")  
-
-    if "progress" in data and data["progress"] == ticket.progress:
-        data.pop("progress")
+    data = ticket_update.model_dump(exclude_unset=True)
     
-    if "assigned_to" in data and data["assigned_to"] == ticket.assigned_to:
-        data.pop("assigned_to")
-
     for field, value in data.items():
         setattr(ticket, field, value)
-
+        
     db.commit()
     db.refresh(ticket)
+    
     return ticket
 
 @router.put("/{ticket_id}/assign_team/{team_id}", response_model=TicketOut)

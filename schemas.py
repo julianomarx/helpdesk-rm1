@@ -195,6 +195,7 @@ class TicketUpdate(BaseModel):
     assigned_to: Optional[int] = None
     category_id: Optional[int] = None
     subcategory_id: Optional[int] = None
+    hotel_id: Optional[int] = None
 
 class Ticket(TicketCreate):
     id: int
