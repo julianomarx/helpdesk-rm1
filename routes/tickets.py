@@ -65,8 +65,6 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: User
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    comments = ticket.comments
-    
     return ticket
 
 @router.put("/{ticket_id}", response_model=TicketOut)
