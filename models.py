@@ -28,11 +28,37 @@ class PriorityEnum(str, PyEnum):
     high = "high"
     
 class LogActionEnum(str, PyEnum):
+    # Ticket lifecycle
     created = "created"
+    ticket_closed = "ticket_closed"
+    ticket_reopened = "ticket_reopened"
+    ticket_deleted = "ticket_deleted"
+
+    # Core changes
     status_changed = "status_changed"
     assigned_changed = "assigned_changed"
     priority_changed = "priority_changed"
     team_changed = "team_changed"
+    category_changed = "category_changed"
+    subcategory_changed = "subcategory_changed"
+
+    # Comments
+    comment_added = "comment_added"
+    comment_updated = "comment_updated"
+    comment_deleted = "comment_deleted"
+
+    # Time tracking
+    time_started = "time_started"
+    time_paused = "time_paused"
+    time_resumed = "time_resumed"
+    time_stopped = "time_stopped"
+
+    # SLA (opcional, mas MUITO útil)
+    sla_started = "sla_started"
+    sla_paused = "sla_paused"
+    sla_resumed = "sla_resumed"
+    sla_breached = "sla_breached"
+    sla_stopped = "sla_stopped"
 
 class Hotel(Base):
     __tablename__ = "hotels"
@@ -91,6 +117,19 @@ class Ticket(Base):
     assigned_team = relationship("Team", back_populates="tickets")
     category = relationship("Category", back_populates="tickets")
     subcategory = relationship("SubCategory", back_populates="tickets")
+    
+class TicketTimeLog(Base):
+    __tablename__ = 'ticket_timelogs'
+    
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    start_time = Column(DateTime, nullable=False) #quando começa o cronometro
+    end_time = Column(DateTime, nullable=True) #quando terminou 
+    
+    # tempo calculado (em segundos)
+    total_seconds = Column(Integer, default=0)
     
 class Category(Base):
     __tablename__ = "categories"
