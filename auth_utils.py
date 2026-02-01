@@ -170,3 +170,11 @@ def create_access_token(user: UserModel) -> str:
     )
 
     return encoded_jwt
+
+#funcao que verifica se usuario pode acessar determinnado ticket
+def can_access_ticket(ticket, user):
+    if user.role in ["admin", "agent"]:
+        return True
+    
+    user_hotels_ids = {uh.hotel_id for uh in user.hotels}
+    return ticket.hotel_id in user_hotels_ids

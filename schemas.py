@@ -220,3 +220,31 @@ class TicketOut(Ticket):
 class TicketWithComments(TicketOut):  
     comments: List[CommentOut] = []
 
+class TimeLogBase(BaseModel):
+    ticket_id: int
+    user_id: int
+    
+class TimeLogCreate(TimeLogBase):
+    pass
+
+class TimeLogPause(BaseModel):
+    timelog_id: int
+    
+class TimeLogResponse(TimeLogBase):
+    id: int
+    start_time: datetime
+    end_time: datetime | None
+    total_seconds: int
+    
+    class Config:
+        orm_mode = True
+        
+class TicketLogOut(BaseModel):
+    id: int
+    action: str
+    value: Optional[str]
+    created_at: datetime
+    user: Optional[User]
+
+    class Config:
+        from_attributes = True

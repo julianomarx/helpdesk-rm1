@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from database import engine, Base
-from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories # sua pasta routes
+from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs # sua pasta routes
 from fastapi.middleware.cors import CORSMiddleware
 
 # Cria todas as tabelas que ainda não existem 
@@ -31,6 +31,7 @@ app.include_router(hotels.router)
 app.include_router(teams.router)
 app.include_router(categories.router)
 app.include_router(subcategories.router)
+app.include_router(ticket_logs.router)
 
 @app.get("/")
 def root():

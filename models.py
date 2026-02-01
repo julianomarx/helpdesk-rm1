@@ -46,6 +46,10 @@ class LogActionEnum(str, PyEnum):
     comment_added = "comment_added"
     comment_updated = "comment_updated"
     comment_deleted = "comment_deleted"
+    
+    # Agent join
+    agent_joined = "agent_joined"    # quando um segundo agente entra no ticket
+    agent_left = "agent_left"        # quando é removido
 
     # Time tracking
     time_started = "time_started"
@@ -118,19 +122,6 @@ class Ticket(Base):
     category = relationship("Category", back_populates="tickets")
     subcategory = relationship("SubCategory", back_populates="tickets")
     
-class TicketTimeLog(Base):
-    __tablename__ = 'ticket_timelogs'
-    
-    id = Column(Integer, primary_key=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
-    
-    start_time = Column(DateTime, nullable=False) #quando começa o cronometro
-    end_time = Column(DateTime, nullable=True) #quando terminou 
-    
-    # tempo calculado (em segundos)
-    total_seconds = Column(Integer, default=0)
-    
 class Category(Base):
     __tablename__ = "categories"
     
@@ -177,6 +168,19 @@ class TicketLog(Base):
     
     ticket = relationship("Ticket", back_populates="logs")
     user = relationship("User", back_populates="logs")
+    
+class TicketTimeLog(Base):
+    __tablename__ = 'ticket_timelogs'
+    
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    start_time = Column(DateTime, nullable=False) #quando começa o cronometro
+    end_time = Column(DateTime, nullable=True) #quando terminou 
+    
+    # tempo calculado (em segundos)
+    total_seconds = Column(Integer, default=0)
 
 class UserHotel(Base):
     __tablename__ = "user_hotels"
