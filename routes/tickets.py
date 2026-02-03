@@ -8,8 +8,10 @@ from schemas import StatusEnum, ProgressEnum
 
 from models import LogActionEnum
 
+from services.ticket_logs import FIELD_TO_ACTION
+
 from database import get_db
-from auth_utils import get_current_user
+from auth_utils import get_current_user, can_access_ticket
 
 router = APIRouter(
     prefix="/tickets",
@@ -100,11 +102,40 @@ def update_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
+    if not can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    
+    
+    logs = []
+    
     data = ticket_update.model_dump(exclude_unset=True)
     
-    for field, value in data.items():
-        setattr(ticket, field, value)
+    for field, new_value in data.items():
         
+        old_value = getattr(ticket, field)
+        
+        if old_value == new_value:
+            continue
+        
+        setattr(ticket, field, new_value)
+        
+        action = FIELD_TO_ACTION.get(field)
+        if not action:
+            continue
+        
+        logs.append(
+            TicketLogModel(
+                ticket_id=ticket.id,
+                user_id=current_user.id,
+                action=action.value,
+                value=str(new_value)
+            )
+        )
+        
+    if logs:
+        print(logs)
+        db.add_all(logs)
+    
     db.commit()
     db.refresh(ticket)
     
