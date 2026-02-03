@@ -29,8 +29,8 @@ class PriorityEnum(str, PyEnum):
     
 class LogActionEnum(str, PyEnum):
     # Ticket lifecycle
-    created = "created"
-    ticket_closed = "ticket_closed"
+    created = "created"                             #feito
+    ticket_closed = "ticket_closed"                 
     ticket_reopened = "ticket_reopened"
     ticket_deleted = "ticket_deleted"
 
@@ -38,7 +38,7 @@ class LogActionEnum(str, PyEnum):
     status_changed = "status_changed"
     assigned_changed = "assigned_changed"
     priority_changed = "priority_changed"
-    team_changed = "team_changed"
+    team_changed = "team_changed"                   #feito
     category_changed = "category_changed"
     subcategory_changed = "subcategory_changed"
 

@@ -37,9 +37,31 @@ def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_u
         subcategory_id=ticket.subcategory_id,
         assigned_team_id=assigned_team_id
     )
+    
     db.add(db_ticket)
+    
+    db.flush()
+    
+    createdTicketLog = TicketLogModel(
+        ticket_id=db_ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.created.value,
+        value=None
+    )
+    
+    teamAssignLog = TicketLogModel(
+        ticket_id=db_ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.team_changed.value,
+        value=str(assigned_team_id)
+    )
+    
+    db.add(createdTicketLog)
+    db.add(teamAssignLog)
+    
     db.commit()
     db.refresh(db_ticket)
+    
     return db_ticket
 
 @router.get("/", response_model=List[TicketOut])
