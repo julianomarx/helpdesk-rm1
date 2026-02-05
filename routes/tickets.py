@@ -48,7 +48,7 @@ def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_u
         ticket_id=db_ticket.id,
         user_id=current_user.id,
         action=LogActionEnum.created.value,
-        value=None
+        value=StatusEnum.open.value
     )
     
     teamAssignLog = TicketLogModel(
@@ -167,3 +167,35 @@ def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_d
     db.refresh(ticket)
     
     return ticket
+
+@router.put("/close-ticket/{ticket_id}", response_model=TicketOut)
+def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+    
+    #Checar permissão 
+    if not can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado ao ticket" ) 
+    
+    ticket.status = StatusEnum.closed.value
+    ticket.progress = ProgressEnum.done.value
+    
+    
+    log = TicketLogModel(
+        user_id=current_user.id,
+        ticket_id=ticket.id,
+        action=LogActionEnum.ticket_closed.value,
+        value=StatusEnum.closed.value
+    )
+    
+    db.add(ticket)
+    db.add(log)
+    
+    db.commit()
+    
+    db.refresh(ticket)
+    
+    return ticket    

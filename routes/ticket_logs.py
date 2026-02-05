@@ -40,3 +40,4 @@ def list_ticket_logs(
     )
     
     return logs
+
