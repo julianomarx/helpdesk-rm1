@@ -9,6 +9,7 @@ from schemas import StatusEnum, ProgressEnum
 from models import LogActionEnum
 
 from services.ticket_logs import FIELD_TO_ACTION
+from services.ticket_permissions import validate_field_permission
 
 from database import get_db
 from auth_utils import get_current_user, can_access_ticket
@@ -112,6 +113,12 @@ def update_ticket(
     
     for field, new_value in data.items():
         
+        if not validate_field_permission(current_user.role, field):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Você não tem permissão para alterar o campo '{field}'"
+            )
+        
         old_value = getattr(ticket, field)
         
         if old_value == new_value:
@@ -199,3 +206,62 @@ def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: Us
     db.refresh(ticket)
     
     return ticket    
+
+@router.put("/reopen-ticket/{ticket_id}", response_model=TicketOut)
+def reopen_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+    
+    if not can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=404, detail="Acesso negado ao ticket")
+    
+    ticket.status = StatusEnum.open.value
+    ticket.progress = ProgressEnum.in_progress.value
+    
+    db.add(ticket)
+    
+    log = TicketLogModel(
+        user_id=current_user.id,
+        ticket_id=ticket.id,
+        action=LogActionEnum.ticket_reopened.value,
+        value=LogActionEnum.ticket_reopened.value
+    )
+    
+    db.add(log)
+    
+    db.commit()
+    
+    db.refresh(ticket)
+    
+    return ticket
+
+@router.delete("/delete-ticket/{ticket_id}")
+def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+    
+    if not can_access_ticket(ticket_id, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    
+    db.delete(ticket)
+    
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.ticket_deleted.value,
+        value=LogActionEnum.ticket_deleted.value
+        
+    )
+    
+    db.add(log)
+    
+    db.commit()
+    
+    return { "message": f"Ticket: {ticket_id} - Deletado com sucesso." }
+    
+    

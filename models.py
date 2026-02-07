@@ -21,6 +21,7 @@ class ProgressEnum(str, PyEnum):
 class StatusEnum(str, PyEnum):
     open = "open"
     closed = "closed"
+    cancelled = "cancelled"
 
 class PriorityEnum(str, PyEnum):
     low = "low"
@@ -30,9 +31,9 @@ class PriorityEnum(str, PyEnum):
 class LogActionEnum(str, PyEnum):
     # Ticket lifecycle
     created = "created"                             #feito
-    ticket_closed = "ticket_closed"                 #fazendo endpoint e leg
-    ticket_reopened = "ticket_reopened"
-    ticket_deleted = "ticket_deleted"
+    ticket_closed = "ticket_closed"                 #Feito endpoint e log
+    ticket_reopened = "ticket_reopened"             #fazendo enpoint e log
+    ticket_deleted = "ticket_deleted"               
 
     # Core changes
     status_changed = "status_changed"

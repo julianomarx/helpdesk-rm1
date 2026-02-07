@@ -12,6 +12,7 @@ class PriorityEnum(str, Enum):
 class StatusEnum(str, Enum):
     open = "open"
     closed = "closed"
+    cancelled = "cancelled"
 
 class ProgressEnum(str, Enum):
     waiting = "waiting"
