@@ -3,15 +3,18 @@ from sqlalchemy.orm import Session
 from typing import List
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel, Category as CategoryModel
+from models import LogActionEnum
 from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
 from schemas import StatusEnum, ProgressEnum
 
-from models import LogActionEnum
+from models import RoleEnum
 
 from services.ticket_logs import FIELD_TO_ACTION
-from services.ticket_permissions import validate_field_permission
+from services.permissions import validate_field_permission
+from services.authorization import ensure_can_assign_agent
+from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
 
-from database import get_db
+from database import get_db 
 from auth_utils import get_current_user, can_access_ticket
 
 router = APIRouter(
@@ -263,5 +266,38 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     db.commit()
     
     return { "message": f"Ticket: {ticket_id} - Deletado com sucesso." }
+
+@router.put("/{ticket_id}/assign-agent/{user_id}", response_model=TicketOut)
+def assign_agent(
+    ticket_id: int, 
+    user_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)):
+
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
     
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
     
+    if not can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    
+    target_user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Usuário não localizado")
+    
+    ensure_can_assign_agent(ticket, current_user, target_user, db)
+    
+    ensure_agent_belongs_to_ticket_assigned_team(ticket, target_user)
+    
+    if ticket.assigned_to == target_user.id:
+        return ticket
+    
+    assign_agent_to_ticket(ticket, current_user, target_user, db)
+    
+    db.commit()
+    db.refresh(ticket)
+    
+    return ticket
+

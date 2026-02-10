@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=User)
-def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db)):
+def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
 
     if existing_user:

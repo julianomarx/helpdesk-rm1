@@ -191,12 +191,7 @@ class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
-    status: Optional[StatusEnum] = None
     progress: Optional[ProgressEnum] = None  
-    assigned_to: Optional[int] = None
-    category_id: Optional[int] = None
-    subcategory_id: Optional[int] = None
-    hotel_id: Optional[int] = None
 
 class Ticket(TicketCreate):
     id: int
