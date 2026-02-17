@@ -44,7 +44,6 @@ class LogActionEnum(str, PyEnum):
     subcategory_changed = "subcategory_changed"
 
     # Comments
-    comment_added = "comment_added"
     comment_updated = "comment_updated"
     comment_deleted = "comment_deleted"
     

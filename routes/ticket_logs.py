@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from auth_utils import get_current_user, can_access_ticket
+from auth_utils import get_current_user, ensure_user_can_access_ticket
 from typing import List
 
 from models import TicketLog as TicketLogModel, Ticket as TicketModel
@@ -26,7 +26,7 @@ def list_ticket_logs(
             detail="Ticket não encontrado"
         )
         
-    if not can_access_ticket(ticket, current_user):
+    if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(
             status_code=403,
             detail="Acesso negado ao ticket"

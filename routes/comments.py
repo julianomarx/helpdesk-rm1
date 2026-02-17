@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List
 from models import TicketComment as CommentModel
 from models import User as UserModel
+from models import Ticket as TicketModel
 from schemas import CommentCreate, Comment as CommentSchema
 from database import get_db
-from auth_utils import get_current_user
+from auth_utils import get_current_user, ensure_user_can_access_ticket
 
 router = APIRouter(
     prefix="/comments",
@@ -14,14 +15,24 @@ router = APIRouter(
 
 @router.post("/", response_model=CommentSchema)
 def create_comment(comment: CommentCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    ensure_user_can_access_ticket(ticket, current_user)
+
     db_comment = CommentModel(
         ticket_id=comment.ticket_id,
-        user_id=comment.user_id,
+        user_id=current_user.id,
         comment=comment.comment
     )
+    
     db.add(db_comment)
     db.commit()
     db.refresh(db_comment)
+    
     return db_comment
 
 @router.get("/", response_model=List[CommentSchema])

@@ -15,7 +15,7 @@ from services.authorization import ensure_can_assign_agent
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
 
 from database import get_db 
-from auth_utils import get_current_user, can_access_ticket
+from auth_utils import get_current_user, ensure_user_can_access_ticket
 
 router = APIRouter(
     prefix="/tickets",
@@ -75,17 +75,12 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
     
     query = db.query(TicketModel)
     
-    if current_user.role not in ["admin", "agent"]:
+    if current_user.role != RoleEnum.admin:
         
-        #Pega apenas os hoteis que o cabra tem acesso
+        user_team_ids = [team.id for team in current_user.teams]
+        query = query.filter(TicketModel.assigned_team_id.in_(user_team_ids))
         
-        print(current_user.hotels)
-        
-        hotel_ids = [uh.hotel.id for uh in current_user.hotels]
-        query = query.filter(TicketModel.hotel_id.in_(hotel_ids))
-    
-    tickets = query.all()
-    return tickets
+    return query.all()
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
@@ -106,7 +101,7 @@ def update_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not can_access_ticket(ticket, current_user):
+    if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
     
     
@@ -187,7 +182,7 @@ def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: Us
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
     #Checar permissão 
-    if not can_access_ticket(ticket, current_user):
+    if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao ticket" ) 
     
     ticket.status = StatusEnum.closed.value
@@ -218,7 +213,7 @@ def reopen_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not can_access_ticket(ticket, current_user):
+    if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(status_code=404, detail="Acesso negado ao ticket")
     
     ticket.status = StatusEnum.open.value
@@ -248,7 +243,7 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not can_access_ticket(ticket_id, current_user):
+    if not ensure_user_can_access_ticket(ticket_id, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
     
     db.delete(ticket)
@@ -279,7 +274,7 @@ def assign_agent(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not can_access_ticket(ticket, current_user):
+    if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
     
     target_user = db.query(UserModel).filter(UserModel.id == user_id).first()
