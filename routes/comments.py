@@ -73,7 +73,7 @@ def update_comment(
         log = TicketLogModel(
             ticket_id=ticket.id,
             user_id=current_user.id,
-            action=LogActionEnum.comment_updated,
+            action=LogActionEnum.comment_updated.value,
             value=json.dumps({
                 "old": old_value,
                 "new": new_value
