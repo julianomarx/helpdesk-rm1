@@ -1,10 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import json
+
 from models import TicketComment as CommentModel
 from models import User as UserModel
 from models import Ticket as TicketModel
+from models import RoleEnum
+
+from models import TicketLog as TicketLogModel  
+from models import LogActionEnum
+
 from schemas import CommentCreate, Comment as CommentSchema
+
 from database import get_db
 from auth_utils import get_current_user, ensure_user_can_access_ticket
 
@@ -35,15 +43,46 @@ def create_comment(comment: CommentCreate, db: Session = Depends(get_db), curren
     
     return db_comment
 
-@router.get("/", response_model=List[CommentSchema])
-def list_comments(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    comments = db.query(CommentModel).all()
-    return comments
-
-@router.get("/{comment_id}", response_model=CommentSchema)
-def get_comment(comment_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    comment = db.query(CommentModel).filter(CommentModel.id == comment_id).first()
-    if not comment:
+@router.put("/{comment_id}", response_model=CommentSchema)
+def update_comment(
+    comment_id: int, 
+    updated_data: CommentCreate, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    db_comment = db.query(CommentModel).filter(CommentModel.id == comment_id).first()
+    
+    if not db_comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    return comment
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == db_comment.ticket_id).first()
+    
+    ensure_user_can_access_ticket(ticket, current_user)
+    
+     # regra: só admin ou dono do comentário pode editar
+    if current_user.role != RoleEnum.admin and db_comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this comment")
+    
+    old_value = db_comment.comment
+    new_value = updated_data.comment
+    
+    db_comment.comment = new_value
+    
+    if old_value != new_value:
+    
+        log = TicketLogModel(
+            ticket_id=ticket.id,
+            user_id=current_user.id,
+            action=LogActionEnum.comment_updated,
+            value=json.dumps({
+                "old": old_value,
+                "new": new_value
+            })
+        )
+        
+        db.add(log)
 
+    db.commit()
+    db.refresh(db_comment)
+
+    return db_comment

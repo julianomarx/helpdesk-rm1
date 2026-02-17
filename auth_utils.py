@@ -11,9 +11,9 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User as UserModel, RoleEnum
-from models import Ticket as TicketModel
-
+from models import User as UserModel, Ticket as TicketModel
+from schemas import User
+from models import RoleEnum
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -173,15 +173,21 @@ def create_access_token(user: UserModel) -> str:
     return encoded_jwt
 
 #funcao que verifica se usuario pode acessar determinnado ticket
-def ensure_user_can_access_ticket(ticket: TicketModel, user: UserModel) -> None:
+def ensure_user_can_access_ticket(ticket, user):
     if user.role == RoleEnum.admin:
-        return
-    
-    user_team_ids = {team.id for team in user.teams}
-    
-    if ticket.assigned_team_id not in user_team_ids:
-        raise HTTPException(status_code=403, detail="Not authorized to access this ticket")
-    
+        return True
+
+    if user.role == RoleEnum.agent:
+        user_team_ids = {ut.team_id for ut in user.teams}
+        user_hotel_ids = {uh.hotel_id for uh in user.hotels}
+        return (ticket.assigned_team_id in user_team_ids) and (ticket.hotel_id in user_hotel_ids)
+
+    if user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
+        user_hotel_ids = {uh.hotel_id for uh in user.hotels}
+        return ticket.hotel_id in user_hotel_ids
+
+    return False
+
 def ensure_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     if current_user.role != RoleEnum.admin:
         raise HTTPException(status_code=403, detail="Not authorized")

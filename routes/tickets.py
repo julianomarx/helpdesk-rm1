@@ -72,19 +72,35 @@ def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_u
 
 @router.get("/", response_model=List[TicketOut])
 def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    
+
     query = db.query(TicketModel)
-    
+
+    # Admin vê tudo
     if current_user.role != RoleEnum.admin:
-        
-        user_team_ids = [team.id for team in current_user.teams]
-        query = query.filter(TicketModel.assigned_team_id.in_(user_team_ids))
-        
+        user_team_ids = {ut.team_id for ut in current_user.teams}
+        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
+
+        if current_user.role == RoleEnum.agent:
+            query = query.filter(
+                TicketModel.assigned_team_id.in_(user_team_ids),
+                TicketModel.hotel_id.in_(user_hotel_ids)
+            )
+        elif current_user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
+            query = query.filter(TicketModel.hotel_id.in_(user_hotel_ids))
+        else:
+            # Caso role não esperado, não retorna nenhum ticket
+            query = query.filter(False)
+
     return query.all()
+
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ensure_user_can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     

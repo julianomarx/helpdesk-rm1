@@ -103,7 +103,6 @@ class UserOut(User):
 # --------------------
 class CommentCreate(BaseModel):
     ticket_id: int
-    user_id: int
     comment: str
 
 class Comment(CommentCreate):
