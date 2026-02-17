@@ -11,7 +11,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User as UserModel
+from models import User as UserModel, RoleEnum
 from schemas import User
 
 # Carregar variáveis de ambiente
@@ -178,3 +178,9 @@ def can_access_ticket(ticket, user):
     
     user_hotels_ids = {uh.hotel_id for uh in user.hotels}
     return ticket.hotel_id in user_hotels_ids
+
+def ensure_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    if current_user.role != RoleEnum.admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    return current_user

@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
-from auth_utils import get_current_user
+from auth_utils import get_current_user, ensure_admin
 
 from models import Category as CategoryModel, Team as TeamModel
+from models import User as UserModel
+from models import RoleEnum
 from schemas import CategoryCreate, CategoryUpdate, Category, CategoryWithSubcategories
 
 router = APIRouter(
@@ -18,8 +20,9 @@ router = APIRouter(
 def create_category(
     category: CategoryCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: UserModel = Depends(ensure_admin)
 ):
+     
     # valida team
     team = db.query(TeamModel).filter(TeamModel.id == category.team_id).first()
     if not team:
@@ -29,7 +32,7 @@ def create_category(
         name=category.name,
         team_id=category.team_id
     )
-
+    
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
@@ -40,7 +43,7 @@ def create_category(
 @router.get("/", response_model=List[Category])
 def list_categories(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user)
 ):
     return db.query(CategoryModel).all()
 
@@ -49,7 +52,7 @@ def list_categories(
 def get_category(
     category_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user)
 ):
     category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
     if not category:
@@ -62,21 +65,26 @@ def update_category(
     category_id: int,
     data: CategoryUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: UserModel = Depends(ensure_admin)
 ):
+    
     category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    # Atualiza somente campos enviados
-    if data.name is not None:
-        category.name = data.name
-    if data.team_id is not None:
-        # validar team novo
-        team = db.query(TeamModel).filter(TeamModel.id == data.team_id).first()
+
+    update_data = data.model_dump(exclude_unset=True)
+    
+    
+     # valida team se estiver no payload
+    if "team_id" in update_data:
+        team = db.query(TeamModel).filter(TeamModel.id == update_data["team_id"]).first()
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
-        category.team_id = data.team_id
+
+    for category_attribute, updated_value in update_data.items():
+        setattr(category, category_attribute, updated_value)
+
 
     db.commit()
     db.refresh(category)
@@ -88,8 +96,9 @@ def update_category(
 def delete_category(
     category_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user: UserModel = Depends(ensure_admin)
 ):
+   
     category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
