@@ -39,10 +39,16 @@ class TokenData(BaseModel):
 # HOTÉIS
 # --------------------
 class HotelBase(BaseModel):
-    code: str = Field(..., example="H8273")
-    name: str = Field(..., example="Hotel Ibis Canoas Shopping")
+    code: Optional[str] = None
+    name: Optional[str] = None
 
 class HotelCreate(HotelBase):
+    pass
+
+class HotelUpdate(HotelBase):
+    pass
+
+class HotelOut(HotelBase):
     pass
 
 class Hotel(HotelBase):
