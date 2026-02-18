@@ -264,15 +264,15 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     
     db.delete(ticket)
     
-    log = TicketLogModel(
-        ticket_id=ticket.id,
-        user_id=current_user.id,
-        action=LogActionEnum.ticket_deleted.value,
-        value=LogActionEnum.ticket_deleted.value
+    # log = TicketLogModel(
+    #     ticket_id=ticket.id,
+    #     user_id=current_user.id,
+    #     action=LogActionEnum.ticket_deleted.value,
+    #     value=LogActionEnum.ticket_deleted.value
         
-    )
+    # )
     
-    db.add(log)
+    # db.add(log)
     
     db.commit()
     
