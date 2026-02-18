@@ -37,6 +37,7 @@ class LogActionEnum(str, PyEnum):
 
     # Core changes
     status_changed = "status_changed"
+    progress_changed = "progress_changed"           
     assigned_changed = "assigned_changed"
     priority_changed = "priority_changed"
     team_changed = "team_changed"                   #feito

@@ -1,4 +1,4 @@
-from models import LogActionEnum
+from models import LogActionEnum, StatusEnum
 
 FIELD_TO_ACTION = {
     "status": LogActionEnum.status_changed,
@@ -7,4 +7,5 @@ FIELD_TO_ACTION = {
     "assigned_team_id": LogActionEnum.team_changed,
     "category_id": LogActionEnum.category_changed,
     "subcategory_id": LogActionEnum.subcategory_changed,
+    "progress": LogActionEnum.progress_changed,
 }

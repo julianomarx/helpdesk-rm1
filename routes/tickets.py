@@ -99,7 +99,7 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: User
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
     
     if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Unauthorized")
+        raise HTTPException(status_code=403, detail="Acesso negado ao Ticket")
     
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
