@@ -173,7 +173,7 @@ def create_access_token(user: UserModel) -> str:
     return encoded_jwt
 
 #funcao que verifica se usuario pode acessar determinnado ticket
-def ensure_user_can_access_ticket(ticket, user):
+def ensure_user_can_access_ticket(ticket: TicketModel, user: UserModel) -> bool:
     if user.role == RoleEnum.admin:
         return True
 

@@ -104,6 +104,9 @@ class UserOut(User):
 class CommentCreate(BaseModel):
     ticket_id: int
     comment: str
+    
+class CommentEdit(BaseModel):
+    comment: str
 
 class Comment(CommentCreate):
     id: int
