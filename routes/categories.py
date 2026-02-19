@@ -15,7 +15,6 @@ router = APIRouter(
     tags=["categories"]
 )
 
-
 @router.post("/", response_model=Category)
 def create_category(
     category: CategoryCreate,
@@ -43,14 +42,12 @@ def create_category(
 
     return db_category
 
-
 @router.get("/", response_model=List[Category])
 def list_categories(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     return db.query(CategoryModel).all()
-
 
 @router.get("/{category_id}", response_model=CategoryWithSubcategories)
 def get_category(
@@ -62,7 +59,6 @@ def get_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
-
 
 @router.put("/{category_id}", response_model=Category)
 def update_category(
@@ -79,12 +75,22 @@ def update_category(
 
     update_data = data.model_dump(exclude_unset=True)
     
-    
-     # valida team se estiver no payload
+    # valida team se estiver no payload
     if "team_id" in update_data:
         team = db.query(TeamModel).filter(TeamModel.id == update_data["team_id"]).first()
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
+        
+    if "name" in update_data:
+        
+        category_name_already_registered = db.query(CategoryModel).filter(
+            CategoryModel.name == update_data["name"],
+            CategoryModel.id != category_id
+        ).first()
+    
+        if category_name_already_registered:
+            raise HTTPException(status_code=400, detail="There is already a category registered with this name")
+        
 
     for category_attribute, updated_value in update_data.items():
         setattr(category, category_attribute, updated_value)
@@ -94,7 +100,6 @@ def update_category(
     db.refresh(category)
 
     return category
-
 
 @router.delete("/{category_id}")
 def delete_category(

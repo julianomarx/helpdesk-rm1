@@ -19,7 +19,7 @@ def create_subcategory(
     sub: SubCategoryCreate,
     db: Session = Depends(get_db),
     current_user = Depends(ensure_admin)
-):
+):  
     category = db.query(CategoryModel).filter(CategoryModel.id == sub.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -34,7 +34,6 @@ def create_subcategory(
     db.refresh(db_sub)
 
     return db_sub
-
 
 @router.get("/", response_model=List[SubCategory])
 def list_subcategories(

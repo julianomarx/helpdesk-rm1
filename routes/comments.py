@@ -15,7 +15,7 @@ from schemas import CommentCreate, Comment as CommentSchema
 from schemas import CommentEdit
 
 from database import get_db
-from auth_utils import get_current_user, ensure_user_can_access_ticket
+from auth_utils import get_current_user, ensure_user_can_access_ticket, ensure_admin
 
 router = APIRouter(
     prefix="/comments",
@@ -89,3 +89,28 @@ def update_comment(
     db.refresh(db_comment)
 
     return db_comment
+
+@router.delete("/{comment_id}")
+def delete_comment(
+    comment_id: int, 
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    db_comment = db.query(CommentModel).filter(CommentModel.id == comment_id).first()
+    
+    if not db_comment:
+        raise HTTPException(status_code=404, detail="Comment not fount!")
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == db_comment.ticket_id).first()
+    
+    if not ensure_user_can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Access to ticket is denied")
+    
+    if current_user.role != RoleEnum.admin and db_comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You have no permission to delete this comment")
+    
+    db.delete(db_comment)
+    
+    db.commit()
+    
+    return { "message": f"Comentário: ID {db_comment.id} - Deletado com sucesso." }

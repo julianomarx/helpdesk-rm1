@@ -262,17 +262,7 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ensure_user_can_access_ticket(ticket_id, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
     
-    db.delete(ticket)
-    
-    # log = TicketLogModel(
-    #     ticket_id=ticket.id,
-    #     user_id=current_user.id,
-    #     action=LogActionEnum.ticket_deleted.value,
-    #     value=LogActionEnum.ticket_deleted.value
-        
-    # )
-    
-    # db.add(log)
+    db.delete(ticket)  
     
     db.commit()
     
