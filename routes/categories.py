@@ -21,12 +21,16 @@ def create_category(
     category: CategoryCreate,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(ensure_admin)
-):
-     
+):   
     # valida team
     team = db.query(TeamModel).filter(TeamModel.id == category.team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    
+    category_name_already_registered = db.query(CategoryModel).filter(CategoryModel.name == category.name).first()
+    
+    if category_name_already_registered:
+        raise HTTPException(status_code=400, detail="There is already a category registered with this name")
 
     db_category = CategoryModel(
         name=category.name,

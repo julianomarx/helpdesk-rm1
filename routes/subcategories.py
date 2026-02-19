@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
-from auth_utils import get_current_user
+from auth_utils import get_current_user, ensure_admin
 
 from models import SubCategory as SubCategoryModel, Category as CategoryModel
 from schemas import SubCategoryCreate, SubCategoryUpdate, SubCategory
@@ -18,7 +18,7 @@ router = APIRouter(
 def create_subcategory(
     sub: SubCategoryCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(ensure_admin)
 ):
     category = db.query(CategoryModel).filter(CategoryModel.id == sub.category_id).first()
     if not category:
@@ -61,7 +61,7 @@ def update_subcategory(
     subcategory_id: int,
     data: SubCategoryUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(ensure_admin)
 ):
     sub = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
     if not sub:
@@ -86,7 +86,7 @@ def update_subcategory(
 def delete_subcategory(
     subcategory_id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(ensure_admin)
 ):
     sub = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
     if not sub:
