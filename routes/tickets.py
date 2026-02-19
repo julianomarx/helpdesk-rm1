@@ -93,7 +93,6 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
 
     return query.all()
 
-
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()

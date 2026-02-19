@@ -6,7 +6,7 @@ from models import Team as TeamModel
 from models import User as UserModel, UserTeam as UserTeamModel
 from schemas import TeamBase, Team
 from database import get_db
-from auth_utils import get_current_user
+from auth_utils import get_current_user, ensure_admin
 
 from services.authorization import ensure_can_manage_team_members
 
@@ -18,18 +18,25 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=Team)
-def create_team(team: TeamBase, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+def create_team(
+    team: TeamBase, 
+    db: Session = Depends(get_db), 
+    current_user = Depends(ensure_admin)
+):
+    existing_team_with_same_name = db.query(TeamModel).filter(TeamModel.name == team.name).first()
+    
+    if existing_team_with_same_name:
+        raise HTTPException(status_code=400, detail="There is already a Team using this name")
+    
     db_team = TeamModel(name=team.name)
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
     return db_team
 
-
 @router.get("/", response_model=List[Team])
 def list_teams(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     return db.query(TeamModel).all()
-
 
 @router.post("/{team_id}/add-user/{user_id}/")
 def add_user_to_team(
@@ -56,3 +63,22 @@ def add_user_to_team(
     db.commit()
     
     return {"message": "User added to team successfully"}
+
+
+@router.delete("/{team_id}")
+def delete_team(
+    team_id: int, 
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(ensure_admin)
+):
+    
+    team = db.query(TeamModel).filter(TeamModel.id == team_id).first()
+    
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    db.delete(team)
+    
+    db.commit()
+    
+    return { "message": f"Team - {team_id} - deleted" }
