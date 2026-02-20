@@ -13,7 +13,7 @@ from services.ticket_logs import FIELD_TO_ACTION
 from services.permissions import validate_field_permission
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service, create_ticket_service
+from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -23,19 +23,13 @@ router = APIRouter(
     tags=["tickets"]
 )
 
-def get_team_for_category(category_id: int, db: Session) -> int:
-    category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
-    return category.team_id if category else None
-
 @router.post("/", response_model=TicketSchema)
 def create_ticket(
     ticket: TicketCreate, 
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
-
     db_ticket = create_ticket_service(ticket, current_user, db)     
-
     db.commit()
     db.refresh(db_ticket)
     
@@ -44,25 +38,7 @@ def create_ticket(
 @router.get("/", response_model=List[TicketOut])
 def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
 
-    query = db.query(TicketModel)
-
-    # Admin vê tudo
-    if current_user.role != RoleEnum.admin:
-        user_team_ids = {ut.team_id for ut in current_user.teams}
-        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
-
-        if current_user.role == RoleEnum.agent:
-            query = query.filter(
-                TicketModel.assigned_team_id.in_(user_team_ids),
-                TicketModel.hotel_id.in_(user_hotel_ids)
-            )
-        elif current_user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
-            query = query.filter(TicketModel.hotel_id.in_(user_hotel_ids))
-        else:
-            # Caso role não esperado, não retorna nenhum ticket
-            query = query.filter(False)
-
-    return query.all()
+   return list_tickets_service(current_user, db)
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

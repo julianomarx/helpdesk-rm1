@@ -4,7 +4,7 @@ from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
 from models import Category as CategoryModel, SubCategory as SubCategoryModel
 from models import Hotel as HotelModel
-from models import ProgressEnum, StatusEnum
+from models import ProgressEnum, StatusEnum, RoleEnum
 
 from schemas import TicketCreate
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel
@@ -134,3 +134,35 @@ def create_ticket_service(
     db.add(ticket_team_assign_log)
     
     return db_ticket
+
+def list_tickets_service(
+    current_user: UserModel,
+    db: Session
+):
+    query = db.query(TicketModel)
+    
+    if current_user.role == RoleEnum.admin:
+        pass
+    
+    elif current_user.role == RoleEnum.agent:
+        user_team_ids = {ut.team_id for ut in current_user.teams}
+        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
+        
+        query = query.filter(
+            TicketModel.assigned_team_id.in_(user_team_ids),
+            TicketModel.hotel_id.in_(user_hotel_ids)
+        )
+        
+    elif current_user.role in [
+        RoleEnum.client_manager,
+        RoleEnum.client_receptionist
+    ]:
+        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
+        query = query.filter(
+            TicketModel.hotel_id.in_(user_hotel_ids)
+        )
+        
+    else:
+        query = query.filter(False)  
+    
+    return query.all()

@@ -15,7 +15,9 @@ from schemas import CommentCreate, Comment as CommentSchema
 from schemas import CommentEdit
 
 from database import get_db
-from services.authorization import get_current_user, ensure_user_can_access_ticket
+from auth_utils import get_current_user
+
+from services.authorization import ensure_user_can_access_ticket
 
 router = APIRouter(
     prefix="/comments",
