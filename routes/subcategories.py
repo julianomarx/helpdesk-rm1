@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
-from auth_utils import get_current_user, ensure_admin
+from auth_utils import get_current_user
+
+from services.authorization import ensure_admin
 
 from models import SubCategory as SubCategoryModel, Category as CategoryModel
 from schemas import SubCategoryCreate, SubCategoryUpdate, SubCategory

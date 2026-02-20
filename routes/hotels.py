@@ -1,17 +1,17 @@
 from fastapi import HTTPException
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from database import get_db
 
 from models import RoleEnum
-
-
 from models import Hotel as HotelModel
 from models import User as UserModel
 
 from schemas import HotelCreate, Hotel, HotelUpdate, HotelOut
 
-from auth_utils import ensure_admin, get_current_user
+from auth_utils import get_current_user
+from services.authorization import ensure_admin
 
 router = APIRouter(prefix="/hotels", tags=["hotels"])
 
@@ -35,7 +35,6 @@ def get_hotel(
     if hotel_id not in user_hotel_ids:
         raise HTTPException(status_code=403, detail="Access to this hotel is denied")
     
-
 @router.post("/", response_model=Hotel)
 def create_hotel(
     hotel: HotelCreate, 

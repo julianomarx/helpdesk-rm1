@@ -11,11 +11,12 @@ from models import RoleEnum
 
 from services.ticket_logs import FIELD_TO_ACTION
 from services.permissions import validate_field_permission
-from services.authorization import ensure_can_assign_agent
+from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
+from services.ticket_service import start_ticket_service
 
 from database import get_db 
-from auth_utils import get_current_user, ensure_user_can_access_ticket
+from auth_utils import get_current_user
 
 router = APIRouter(
     prefix="/tickets",
@@ -44,26 +45,28 @@ def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_u
         assigned_team_id=assigned_team_id
     )
     
+    
+    
     db.add(db_ticket)
     
     db.flush()
     
-    createdTicketLog = TicketLogModel(
+    ticket_creation_log = TicketLogModel(
         ticket_id=db_ticket.id,
         user_id=current_user.id,
         action=LogActionEnum.created.value,
         value=StatusEnum.open.value
     )
     
-    teamAssignLog = TicketLogModel(
+    ticket_team_assign_log = TicketLogModel(
         ticket_id=db_ticket.id,
         user_id=current_user.id,
         action=LogActionEnum.team_changed.value,
         value=str(assigned_team_id)
     )
     
-    db.add(createdTicketLog)
-    db.add(teamAssignLog)
+    db.add(ticket_creation_log)
+    db.add(ticket_team_assign_log)
     
     db.commit()
     db.refresh(db_ticket)
@@ -187,6 +190,34 @@ def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_d
     db.refresh(ticket)
     
     return ticket
+
+@router.put("/start-ticket/{ticket_id}", response_model=TicketOut)
+def start_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user),
+):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404,detail="Ticket not found")
+    
+    ensure_can_assign_agent(ticket, current_user, current_user, db)
+    
+    ensure_agent_belongs_to_ticket_assigned_team(ticket, current_user)
+    
+    #verifica se ja não tem alguém atendendo 
+    if ticket.assigned_to is not None:
+        raise HTTPException(status_code=400, detail="This ticket is already being handled by another agent")
+    
+    start_ticket_service(ticket.id, current_user, db)
+    
+    db.commit()
+    db.refresh(ticket)
+    
+    return ticket
+    
 
 @router.put("/close-ticket/{ticket_id}", response_model=TicketOut)
 def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

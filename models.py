@@ -31,6 +31,7 @@ class PriorityEnum(str, PyEnum):
 class LogActionEnum(str, PyEnum):
     # Ticket lifecycle
     created = "created"                             #feito
+    ticket_started = "ticket_started"
     ticket_closed = "ticket_closed"                 #Feito endpoint e log
     ticket_reopened = "ticket_reopened"             #fazendo enpoint e log
     ticket_deleted = "ticket_deleted"               
