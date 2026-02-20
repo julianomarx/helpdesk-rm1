@@ -2,11 +2,12 @@ from fastapi import HTTPException
 
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
+from models import Category as CategoryModel, SubCategory as SubCategoryModel
+from models import Hotel as HotelModel
+from models import ProgressEnum, StatusEnum
 
-from models import ProgressEnum
-
-from services.authorization import ensure_can_assign_agent
-
+from schemas import TicketCreate
+from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel
 from sqlalchemy.orm import Session
 
 def assign_agent_to_ticket(ticket: TicketModel, current_user: UserModel, target_user: UserModel, db: Session):
@@ -72,3 +73,64 @@ def start_ticket_service(
     db.refresh(ticket)
     
     return ticket
+
+def create_ticket_service(
+    ticket_to_create: TicketCreate, 
+    current_user: UserModel, 
+    db: Session
+):
+    
+    hotel = db.query(HotelModel).filter(HotelModel.id == ticket_to_create.hotel_id).first()
+    if not hotel:
+        raise HTTPException(status_code=404, detail="Hotel not found")
+    
+    if not ensure_user_can_access_hotel(current_user, hotel):
+        raise HTTPException(status_code=403, detail="Access to this hotel is unauthorized for your user")
+        
+    category = db.query(CategoryModel).filter(CategoryModel.id == ticket_to_create.category_id).first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail="Invalid category")
+    
+    subcategory = db.query(SubCategoryModel).filter(SubCategoryModel.id == ticket_to_create.subcategory_id).first()
+    
+    if not subcategory:
+        raise HTTPException(status_code=404, detail="Invalid subcategory")
+    
+    assigned_team_id = category.team_id
+    
+    db_ticket = TicketModel(
+        title=ticket_to_create.title,
+        description=ticket_to_create.description,
+        status=StatusEnum.open.value,       
+        progress=ProgressEnum.waiting.value, 
+        priority=ticket_to_create.priority,
+        created_by=current_user.id,
+        hotel_id=hotel.id,
+        category_id=category.id,
+        subcategory_id=subcategory.id,
+        assigned_team_id=assigned_team_id
+    )
+    
+    db.add(db_ticket)
+    
+    db.flush()
+    
+    ticket_creation_log = TicketLogModel(
+        ticket_id=db_ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.created.value,
+        value=StatusEnum.open.value
+    )
+    
+    ticket_team_assign_log = TicketLogModel(
+        ticket_id=db_ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.team_changed.value,
+        value=str(assigned_team_id)
+    )
+    
+    db.add(ticket_creation_log)
+    db.add(ticket_team_assign_log)
+    
+    return db_ticket

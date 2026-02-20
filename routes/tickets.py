@@ -4,7 +4,7 @@ from typing import List
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel, Category as CategoryModel
 from models import LogActionEnum
-from schemas import TicketCreate, Ticket, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
+from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
 from schemas import StatusEnum, ProgressEnum
 
 from models import RoleEnum
@@ -13,7 +13,7 @@ from services.ticket_logs import FIELD_TO_ACTION
 from services.permissions import validate_field_permission
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service
+from services.ticket_service import start_ticket_service, create_ticket_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -28,46 +28,14 @@ def get_team_for_category(category_id: int, db: Session) -> int:
     return category.team_id if category else None
 
 @router.post("/", response_model=TicketSchema)
-def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    
-    assigned_team_id = get_team_for_category(ticket.category_id, db)
-    
-    db_ticket = TicketModel(
-        title=ticket.title,
-        description=ticket.description,
-        status=StatusEnum.open.value,       
-        progress=ProgressEnum.waiting.value, 
-        priority=ticket.priority,
-        created_by=current_user.id,
-        hotel_id=ticket.hotel_id,
-        category_id=ticket.category_id,
-        subcategory_id=ticket.subcategory_id,
-        assigned_team_id=assigned_team_id
-    )
-    
-    
-    
-    db.add(db_ticket)
-    
-    db.flush()
-    
-    ticket_creation_log = TicketLogModel(
-        ticket_id=db_ticket.id,
-        user_id=current_user.id,
-        action=LogActionEnum.created.value,
-        value=StatusEnum.open.value
-    )
-    
-    ticket_team_assign_log = TicketLogModel(
-        ticket_id=db_ticket.id,
-        user_id=current_user.id,
-        action=LogActionEnum.team_changed.value,
-        value=str(assigned_team_id)
-    )
-    
-    db.add(ticket_creation_log)
-    db.add(ticket_team_assign_log)
-    
+def create_ticket(
+    ticket: TicketCreate, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
+
+    db_ticket = create_ticket_service(ticket, current_user, db)     
+
     db.commit()
     db.refresh(db_ticket)
     
@@ -216,8 +184,7 @@ def start_ticket(
     db.commit()
     db.refresh(ticket)
     
-    return ticket
-    
+    return ticket   
 
 @router.put("/close-ticket/{ticket_id}", response_model=TicketOut)
 def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

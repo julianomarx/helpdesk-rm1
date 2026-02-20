@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Depends
 from models import User as UserModel, Ticket as TicketModel
+from models import Hotel as HotelModel
 from models import RoleEnum 
 
 from auth_utils import get_current_user
@@ -50,6 +51,14 @@ def ensure_user_can_access_ticket(ticket: TicketModel, user: UserModel) -> bool:
         return ticket.hotel_id in user_hotel_ids
 
     return False
+
+def ensure_user_can_access_hotel(user: UserModel, hotel: HotelModel) -> bool:
+    if user.role == RoleEnum.admin:
+        return True
+    
+    user_hotel_ids = {uh.hotel_id for uh in user.hotels}
+    
+    return hotel.id in user_hotel_ids   
 
 def ensure_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     if current_user.role != RoleEnum.admin:
