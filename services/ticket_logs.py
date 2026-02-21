@@ -1,4 +1,4 @@
-from models import LogActionEnum, StatusEnum
+from models import LogActionEnum
 
 FIELD_TO_ACTION = {
     "status": LogActionEnum.status_changed,

@@ -2,12 +2,17 @@ from fastapi import HTTPException
 
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
+
 from models import Category as CategoryModel, SubCategory as SubCategoryModel
 from models import Hotel as HotelModel
 from models import ProgressEnum, StatusEnum, RoleEnum
 
-from schemas import TicketCreate
-from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel
+from services.ticket_logs import FIELD_TO_ACTION
+
+from schemas import TicketCreate, TicketUpdate
+from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel, ensure_user_can_access_ticket
+from services.permissions import can_update_ticket_field
+
 from sqlalchemy.orm import Session
 
 def assign_agent_to_ticket(ticket: TicketModel, current_user: UserModel, target_user: UserModel, db: Session):
@@ -51,6 +56,7 @@ def start_ticket_service(
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
     ensure_can_assign_agent(ticket, current_user, current_user, db)
+    
     ensure_agent_belongs_to_ticket_assigned_team(ticket, current_user)
     
     if ticket.assigned_to is not None:
@@ -59,7 +65,7 @@ def start_ticket_service(
     ticket.assigned_to = current_user.id
     ticket.progress = ProgressEnum.in_progress.value
     
-    log = TicketLogModel(
+    log = TicketLogModel(   
         ticket_id=ticket.id,
         user_id=current_user.id,
         action=LogActionEnum.ticket_started.value,
@@ -67,11 +73,7 @@ def start_ticket_service(
     )
     
     db.add(log)
-    
-    db.commit()
-    
-    db.refresh(ticket)
-    
+
     return ticket
 
 def create_ticket_service(
@@ -166,3 +168,55 @@ def list_tickets_service(
         query = query.filter(False)  
     
     return query.all()
+
+def ticket_edit_service(    
+    ticket_id: int, 
+    ticket_update: TicketUpdate,
+    current_user: UserModel,
+    db: Session
+):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).with_for_update().first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+    
+    if not ensure_user_can_access_ticket(ticket, current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    
+    logs = []
+    
+    update_fields = ticket_update.model_dump(exclude_unset=True)
+    
+    for field, new_value in update_fields.items():
+        
+        if not can_update_ticket_field(current_user.role, field):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Você não tem permissão para alterar o campo '{field}'"
+            )
+        
+        old_value = getattr(ticket, field)
+        
+        if old_value == new_value:
+            continue
+        
+        setattr(ticket, field, new_value)
+        
+        action = FIELD_TO_ACTION.get(field)
+        if not action:
+            continue
+        
+        logs.append(
+            TicketLogModel(
+                ticket_id=ticket.id,
+                user_id=current_user.id,
+                action=action.value,
+                value=str(new_value)
+            )
+        )
+        
+    if logs:
+        print(logs)
+        db.add_all(logs)
+        
+    return ticket

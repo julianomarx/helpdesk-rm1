@@ -1,4 +1,4 @@
-ROLE_FIELD_PERMISSIONS = {
+TICKET_FIELD_UPDATE_PERMISSIONS = {
     "admin": {
         "status", "priority", "assigned_to",
         "category_id", "subcategory_id",
@@ -10,7 +10,6 @@ ROLE_FIELD_PERMISSIONS = {
     "client_receptionist": {"title", "description"},
 }
 
-def validate_field_permission(role: str, field: str):
-    allowed = ROLE_FIELD_PERMISSIONS.get(role, set())
-    return field in allowed
-    
+def can_update_ticket_field(role: str, field_name: str) -> bool:
+    allowed_fields = TICKET_FIELD_UPDATE_PERMISSIONS.get(role, set())
+    return field_name in allowed_fields

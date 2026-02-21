@@ -9,11 +9,10 @@ from schemas import StatusEnum, ProgressEnum
 
 from models import RoleEnum
 
-from services.ticket_logs import FIELD_TO_ACTION
-from services.permissions import validate_field_permission
+from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service
+from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -43,13 +42,10 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    
     if not ensure_user_can_access_ticket(ticket, current_user):
         raise HTTPException(status_code=403, detail="Acesso negado ao Ticket")
-    
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    
     return ticket
 
 @router.put("/{ticket_id}", response_model=TicketOut)
@@ -59,49 +55,7 @@ def update_ticket(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
-    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket não localizado")
-    
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
-    
-    
-    logs = []
-    
-    data = ticket_update.model_dump(exclude_unset=True)
-    
-    for field, new_value in data.items():
-        
-        if not validate_field_permission(current_user.role, field):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Você não tem permissão para alterar o campo '{field}'"
-            )
-        
-        old_value = getattr(ticket, field)
-        
-        if old_value == new_value:
-            continue
-        
-        setattr(ticket, field, new_value)
-        
-        action = FIELD_TO_ACTION.get(field)
-        if not action:
-            continue
-        
-        logs.append(
-            TicketLogModel(
-                ticket_id=ticket.id,
-                user_id=current_user.id,
-                action=action.value,
-                value=str(new_value)
-            )
-        )
-        
-    if logs:
-        print(logs)
-        db.add_all(logs)
+    ticket = ticket_edit_service(ticket_id, ticket_update, current_user, db)
     
     db.commit()
     db.refresh(ticket)
@@ -142,20 +96,7 @@ def start_ticket(
     current_user: UserModel = Depends(get_current_user),
 ):
     
-    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    
-    if not ticket:
-        raise HTTPException(status_code=404,detail="Ticket not found")
-    
-    ensure_can_assign_agent(ticket, current_user, current_user, db)
-    
-    ensure_agent_belongs_to_ticket_assigned_team(ticket, current_user)
-    
-    #verifica se ja não tem alguém atendendo 
-    if ticket.assigned_to is not None:
-        raise HTTPException(status_code=400, detail="This ticket is already being handled by another agent")
-    
-    start_ticket_service(ticket.id, current_user, db)
+    ticket = start_ticket_service(ticket_id, current_user, db)
     
     db.commit()
     db.refresh(ticket)
