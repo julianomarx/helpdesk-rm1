@@ -42,8 +42,9 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao Ticket")
+    
+    ensure_user_can_access_ticket(ticket, current_user)
+    
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return ticket
@@ -111,13 +112,10 @@ def close_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: Us
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    #Checar permissão 
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao ticket" ) 
+    ensure_user_can_access_ticket(ticket, current_user) 
     
     ticket.status = StatusEnum.closed.value
     ticket.progress = ProgressEnum.done.value
-    
     
     log = TicketLogModel(
         user_id=current_user.id,
@@ -143,8 +141,7 @@ def reopen_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=404, detail="Acesso negado ao ticket")
+    ensure_user_can_access_ticket(ticket, current_user)
     
     ticket.status = StatusEnum.open.value
     ticket.progress = ProgressEnum.in_progress.value
@@ -173,8 +170,7 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not ensure_user_can_access_ticket(ticket_id, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    ensure_user_can_access_ticket(ticket_id, current_user)
     
     db.delete(ticket)  
     
@@ -194,8 +190,7 @@ def assign_agent(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    ensure_user_can_access_ticket(ticket, current_user)
     
     target_user = db.query(UserModel).filter(UserModel.id == user_id).first()
     

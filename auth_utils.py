@@ -171,25 +171,3 @@ def create_access_token(user: UserModel) -> str:
     )
 
     return encoded_jwt
-
-#funcao que verifica se usuario pode acessar determinnado ticket
-# def ensure_user_can_access_ticket(ticket: TicketModel, user: UserModel) -> bool:
-#     if user.role == RoleEnum.admin:
-#         return True
-
-#     if user.role == RoleEnum.agent:
-#         user_team_ids = {ut.team_id for ut in user.teams}
-#         user_hotel_ids = {uh.hotel_id for uh in user.hotels}
-#         return (ticket.assigned_team_id in user_team_ids) and (ticket.hotel_id in user_hotel_ids)
-
-#     if user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
-#         user_hotel_ids = {uh.hotel_id for uh in user.hotels}
-#         return ticket.hotel_id in user_hotel_ids
-
-#     return False
-
-# def ensure_admin(current_user: UserModel = Depends(get_current_user)) -> UserModel:
-#     if current_user.role != RoleEnum.admin:
-#         raise HTTPException(status_code=403, detail="Not authorized")
-    
-#     return current_user

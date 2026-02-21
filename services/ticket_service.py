@@ -86,8 +86,7 @@ def create_ticket_service(
     if not hotel:
         raise HTTPException(status_code=404, detail="Hotel not found")
     
-    if not ensure_user_can_access_hotel(current_user, hotel):
-        raise HTTPException(status_code=403, detail="Access to this hotel is unauthorized for your user")
+    ensure_user_can_access_hotel(current_user, hotel)
         
     category = db.query(CategoryModel).filter(CategoryModel.id == ticket_to_create.category_id).first()
     
@@ -180,8 +179,7 @@ def ticket_edit_service(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado ao ticket")
+    ensure_user_can_access_ticket(ticket, current_user)
     
     logs = []
     

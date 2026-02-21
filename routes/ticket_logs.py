@@ -29,12 +29,8 @@ def list_ticket_logs(
             detail="Ticket não encontrado"
         )
         
-    if not ensure_user_can_access_ticket(ticket, current_user):
-        raise HTTPException(
-            status_code=403,
-            detail="Acesso negado ao ticket"
-        )
-        
+    ensure_user_can_access_ticket(ticket, current_user)
+    
     logs = (
         db.query(TicketLogModel)
         .filter(TicketLogModel.ticket_id == ticket_id)

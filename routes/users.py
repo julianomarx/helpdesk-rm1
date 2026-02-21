@@ -9,6 +9,8 @@ from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, Us
 from database import get_db
 from auth_utils import get_current_user
 
+from services.user_service import update_user_hotels_service
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter(
@@ -47,7 +49,6 @@ def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db), curre
         
     return db_user
     
-
 @router.get("/", response_model=List[User])
 def list_users(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     users = db.query(UserModel).all()
@@ -103,22 +104,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: UserM
 
 @router.put("/{user_id}/hotels", response_model=UserOut)
 def update_user_hotels(user_id: int, hotels_update: UserHotelsUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    db.query(UserHotelModel).filter(UserHotelModel.user_id == user_id).delete()
+    user = update_user_hotels_service(user_id, hotels_update, current_user, db)
     
-    for hid in hotels_update.hotel_ids:
-        user_hotel = UserHotelModel(user_id=user_id, hotel_id=hid)
-        db.add(user_hotel)
-        
     db.commit()
     db.refresh(user)
     
-    return UserOut(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        role=user.role
-    )
+    return user
