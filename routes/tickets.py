@@ -12,7 +12,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service
+from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -42,11 +42,11 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
     
     ensure_user_can_access_ticket(ticket, current_user)
     
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
     return ticket
 
 @router.put("/{ticket_id}", response_model=TicketOut)
@@ -66,26 +66,9 @@ def update_ticket(
 @router.put("/{ticket_id}/assign_team/{team_id}", response_model=TicketOut)
 def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     
-    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(404, "Ticket não encontrado")
-    
-    team = db.query(TeamModel).filter(TeamModel.id == team_id).first()
-    if not team:
-        raise HTTPException(404, "Equipe não encontrada")
-    
-    ticket.assigned_team_id = team_id
-    
-    log = TicketLogModel(
-        ticket_id=ticket.id,
-        user_id=current_user.id,
-        action=LogActionEnum.team_changed.value,
-        value=team_id
-    )
-    
-    db.add(log)
+    ticket = assign_ticket_team_service(ticket_id, team_id, current_user, db)
+
     db.commit()
-    
     db.refresh(ticket)
     
     return ticket

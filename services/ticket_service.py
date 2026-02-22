@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
+from models import Team as TeamModel
 
 from models import Category as CategoryModel, SubCategory as SubCategoryModel
 from models import Hotel as HotelModel
@@ -217,4 +218,32 @@ def ticket_edit_service(
         print(logs)
         db.add_all(logs)
         
+    return ticket
+
+def assign_ticket_team_service(
+    ticket_id: int,
+    team_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket não encontrado")
+    
+    team = db.query(TeamModel).filter(TeamModel.id == team_id).first()
+    if not team:
+        raise HTTPException(404, "Equipe não encontrada")
+    
+    ticket.assigned_team_id = team_id
+    
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.team_changed.value,
+        value=team_id
+    )
+    
+    db.add(log)
+    
     return ticket
