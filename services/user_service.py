@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 
 from services.validations import ensure_hotels_exist
+from services.authorization import get_user_accessible_hotel_ids
 
 from sqlalchemy.orm import Session
 
@@ -97,4 +98,90 @@ def update_user_hotels_service(
         ))
         
     return target_user
+
+def list_users_service(
+    db: Session,
+    current_user: UserModel,
+    hotel_id: int | None = None,
+    role: RoleEnum |None = None
+):
+    
+    query = db.query(UserModel)
+    
+    #admin
+    if current_user.role == RoleEnum.admin:
+        if hotel_id:      
+            query = query.join(UserHotelModel).filter(
+                UserHotelModel.hotel_id == hotel_id
+            )
+        
+        if role:
+            query = query.filter(UserModel.role == role)
+            
+        return query.distinct().all()
+        
+    
+    #agent 
+    elif current_user.role == RoleEnum.agent:
+        if not hotel_id:
+            raise HTTPException(status_code=400, detail="Agents must provide hotel_id to get users")
+        
+        accessible_hotels = get_user_accessible_hotel_ids(current_user)
+
+        if hotel_id not in accessible_hotels:
+            raise HTTPException(status_code=403, detail="You dont have access to this hotel")
+        
+        query = query.join(UserHotelModel).filter(
+            UserHotelModel.hotel_id == hotel_id
+        )
+        
+        query = query.filter(UserModel.role != RoleEnum.admin)
+        
+        if role:
+            if role == RoleEnum.admin:
+                return []   
+             
+            query = query.filter(UserModel.role == role)
+            
+        return query.distinct().all()
+        
+              
+    #client_manager
+    elif current_user.role == RoleEnum.client_manager:
+        
+        accessible_hotels = get_user_accessible_hotel_ids(current_user)
+        
+        query = query.join(UserHotelModel).filter(
+            UserHotelModel.hotel_id.in_(accessible_hotels)
+        )   
+        
+        
+        if hotel_id:
+            if hotel_id not in accessible_hotels:
+                raise HTTPException(status_code=403, detail="Not allowed for this hotel")
+            
+            query = query.filter(UserHotelModel.hotel_id == hotel_id)
+            
+        allowed_roles = [
+            RoleEnum.client_manager,
+            RoleEnum.client_receptionist
+        ]
+        
+        query = query.filter(UserModel.role.in_(allowed_roles))
+        
+        if role:
+            if role not in allowed_roles:
+                return []
+            
+            query = query.filter(UserModel.role == role)
+            
+        return query.distinct().all()
+        
+        
+    #receptionist 
+    elif current_user.role == RoleEnum.client_receptionist:
+        raise HTTPException(status_code=403, detail="Receptionists should not list users")
+    
+    else:
+        raise HTTPException(status_code=403, detail="Not allowed")
     

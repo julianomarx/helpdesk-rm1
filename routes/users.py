@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from passlib.context import CryptContext
@@ -8,8 +8,8 @@ from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, Us
 from database import get_db
 from auth_utils import get_current_user
 
-from services.user_service import create_user_service
-from services.user_service import update_user_hotels_service
+from services.user_service import create_user_service, update_user_hotels_service, list_users_service
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -29,9 +29,15 @@ def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db), curre
     return created_user
     
 @router.get("/", response_model=List[User])
-def list_users(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    users = db.query(UserModel).all()
-    return users
+def list_users(
+    hotel_id: int | None = Query(default=None),
+    role: int | None = Query(default=None),
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    return list_users_service(db,current_user, hotel_id, role)
+    
+    
 
 @router.get("/{user_id}", response_model=User)
 def get_user(user_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
@@ -48,24 +54,22 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     data = user_update.model_dump(exclude_unset=True)
 
     if data["name"] == user.name:
-        data.pop("name") #Mesmo nome não atualiza
+        data.pop("name") 
 
-    if data["email"] == user.email: #se passar um email idgual ao usuário selecionado por parametro não irá atualizar o email
+    if data["email"] == user.email: 
         data.pop("email")
     else:
         existing_user =  db.query(UserModel).filter(UserModel.email == data["email"]).first()
-        if existing_user and existing_user.id != user.id: ##email ja em uso por outro usuário, não atualiza
+        if existing_user and existing_user.id != user.id: 
             raise HTTPException(status_code=400, detail="Email já está em uso por outro usuário")
         
-    # Se enviar senha, transforma em hash antes de atualizar
     if "password" in data:
         if pwd_context.verify(data["password"], user.password_hash):
-            data.pop("password") #mesma senha, não atualiza
+            data.pop("password") 
     
-    else: #atualiza a senha se cair no else
+    else: 
         data["password_hash"] = pwd_context.hash(data.pop("password"))
 
-    # Atualiza os campos do usuário
     for field, value in data.items():
         setattr(user, field, value)
     db.commit()
