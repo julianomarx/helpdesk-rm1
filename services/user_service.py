@@ -120,7 +120,6 @@ def list_users_service(
             
         return query.distinct().all()
         
-    
     #agent 
     elif current_user.role == RoleEnum.agent:
         if not hotel_id:
@@ -145,8 +144,6 @@ def list_users_service(
             
         return query.distinct().all()
         
-              
-    #client_manager
     elif current_user.role == RoleEnum.client_manager:
         
         accessible_hotels = get_user_accessible_hotel_ids(current_user)
@@ -185,3 +182,45 @@ def list_users_service(
     else:
         raise HTTPException(status_code=403, detail="Not allowed")
     
+def get_user_service(
+    current_user: UserModel,
+    target_user_id: int,
+    db: Session
+):
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+
+    if not target_user: 
+        raise HTTPException(status_code=404, detail="User not found")
+     
+    if current_user.role == RoleEnum.admin:
+        return target_user
+     
+    if current_user.role == RoleEnum.client_receptionist:
+        raise HTTPException(status_code=403, detail="User not found")
+    
+    accessible_hotels = get_user_accessible_hotel_ids(current_user)
+    
+    if not any(
+        uh.hotel_id in accessible_hotels
+        for uh in target_user.hotels
+    ):
+        raise HTTPException(status_code=403, detail="User not found")
+
+    if current_user.role == RoleEnum.agent: 
+        if target_user.role == RoleEnum.admin:
+            raise HTTPException(status_code=403, detail="User not found")
+        
+        return target_user
+    
+    if current_user.role == RoleEnum.client_manager:
+        accessible_roles = [
+            RoleEnum.client_manager, RoleEnum.client_receptionist
+        ]
+        
+        if target_user.role not in accessible_roles:
+            raise HTTPException(status_code=403, detail="User not found")
+        
+        return target_user
+    
+    raise HTTPException(status_code=403, detail="User not found")
+        

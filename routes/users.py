@@ -5,10 +5,11 @@ from passlib.context import CryptContext
 
 from models import User as UserModel, UserHotel as UserHotelModel
 from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, UserOut
+from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
 
-from services.user_service import create_user_service, update_user_hotels_service, list_users_service
+from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,8 +20,11 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=User)
-def create_user(user: UserCreateWithHotels, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-
+def create_user(
+    user: UserCreateWithHotels, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
     created_user = create_user_service(user, current_user, db)
     
     db.commit()
@@ -37,14 +41,14 @@ def list_users(
 ):
     return list_users_service(db,current_user, hotel_id, role)
     
-    
-
 @router.get("/{user_id}", response_model=User)
-def get_user(user_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário Não encontrado")
-    return user
+def get_user(
+    user_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    
+    return get_user_service(current_user, user_id, db)
 
 @router.put("/{user_id}", response_model=User)
 def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
