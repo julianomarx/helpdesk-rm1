@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import UserHotelsUpdate, UserCreateWithHotels
+from schemas import UserHotelsUpdate, UserCreateWithHotels, UserUpdate
 from models import RoleEnum
 
 from services.validations import ensure_hotels_exist
@@ -224,3 +224,62 @@ def get_user_service(
     
     raise HTTPException(status_code=403, detail="User not found")
         
+def update_user_service(
+    target_user_id: int,
+    current_user: UserModel,
+    user_update: UserUpdate,
+    db: Session
+):
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if current_user.role == RoleEnum.admin:
+        pass
+    
+    elif current_user.role == RoleEnum.client_manager:
+        
+        acessible_hotels = get_user_accessible_hotel_ids(current_user)
+        
+        if not any(
+            uh.hotel_id in acessible_hotels
+            for uh in target_user.hotels
+        ):
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        allowed_roles = [
+            RoleEnum.client_manager,
+            RoleEnum.client_receptionist
+        ]
+        
+        if target_user.role not in allowed_roles:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_fields = user_update.model_dump(exclude_unset=True)
+    
+    if "name" in update_fields and update_fields["name"] == target_user.name:
+        update_fields.pop("name")
+        
+    if "email" in update_fields:
+        if update_fields["email"] == target_user.email:
+            update_fields.pop("email")
+        else:
+            existing_user = db.query(UserModel).filter(UserModel.email == update_fields["email"]).first()
+            
+            if existing_user and existing_user.id != target_user.id:
+                raise HTTPException(status_code=400, detail="Email already in use")
+            
+    if "password" in update_fields:
+        if pwd_context.verify(update_fields["password"], target_user.password_hash):
+            update_fields.pop("password")
+        else:
+            update_fields["password_hash"] = pwd_context.hash(update_fields.pop("password"))
+            
+    for field_to_update, field_value in update_fields.items():
+        setattr(target_user, field_to_update, field_value)
+        
+    return target_user

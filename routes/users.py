@@ -9,7 +9,7 @@ from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
 
-from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service
+from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -51,33 +51,17 @@ def get_user(
     return get_user_service(current_user, user_id, db)
 
 @router.put("/{user_id}", response_model=User)
-def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    data = user_update.model_dump(exclude_unset=True)
-
-    if data["name"] == user.name:
-        data.pop("name") 
-
-    if data["email"] == user.email: 
-        data.pop("email")
-    else:
-        existing_user =  db.query(UserModel).filter(UserModel.email == data["email"]).first()
-        if existing_user and existing_user.id != user.id: 
-            raise HTTPException(status_code=400, detail="Email já está em uso por outro usuário")
-        
-    if "password" in data:
-        if pwd_context.verify(data["password"], user.password_hash):
-            data.pop("password") 
+def update_user(
+    user_id: int, 
+    user_update: UserUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    user = update_user_service(user_id, current_user, user_update, db)
     
-    else: 
-        data["password_hash"] = pwd_context.hash(data.pop("password"))
-
-    for field, value in data.items():
-        setattr(user, field, value)
     db.commit()
     db.refresh(user)
+    
     return user
 
 @router.delete("/{user_id}")
