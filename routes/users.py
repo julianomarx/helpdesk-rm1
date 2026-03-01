@@ -9,8 +9,8 @@ from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
 
-from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service
-
+from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service, delete_user_service
+from services.authorization import ensure_admin
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -65,13 +65,15 @@ def update_user(
     return user
 
 @router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    db.delete(user)
-    db.commit()
-    return { "message": f"Usuário {user_id} - {user.name} - foi deletado com sucesso." }
+def delete_user(
+    user_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(ensure_admin)):
+    
+    
+    delete_user_service(user_id, current_user, db)
+    
+    return { "message": f"Usuário {user_id} - foi deletado com sucesso." }
 
 @router.put("/{user_id}/hotels", response_model=UserOut)
 def update_user_hotels(user_id: int, hotels_update: UserHotelsUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

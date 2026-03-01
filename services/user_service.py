@@ -283,3 +283,18 @@ def update_user_service(
         setattr(target_user, field_to_update, field_value)
         
     return target_user
+
+def delete_user_service(
+    target_user_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    
+    user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    
+    if not user: 
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db.delete(user)
+    
+    db.commit()
