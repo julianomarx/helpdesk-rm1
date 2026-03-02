@@ -6,6 +6,7 @@ from database import get_db
 from auth_utils import get_current_user
 
 from services.authorization import ensure_admin
+from services.category_service import create_category_service, delete_category_service, update_category_service
 
 from models import Category as CategoryModel, Team as TeamModel
 from models import User as UserModel
@@ -23,26 +24,9 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(ensure_admin)
 ):   
-    # valida team
-    team = db.query(TeamModel).filter(TeamModel.id == category.team_id).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
-    
-    category_name_already_registered = db.query(CategoryModel).filter(CategoryModel.name == category.name).first()
-    
-    if category_name_already_registered:
-        raise HTTPException(status_code=400, detail="There is already a category registered with this name")
+    new_category = create_category_service(category, db)
 
-    db_category = CategoryModel(
-        name=category.name,
-        team_id=category.team_id
-    )
-    
-    db.add(db_category)
-    db.commit()
-    db.refresh(db_category)
-
-    return db_category
+    return new_category
 
 @router.get("/", response_model=List[Category])
 def list_categories(
@@ -65,43 +49,13 @@ def get_category(
 @router.put("/{category_id}", response_model=Category)
 def update_category(
     category_id: int,
-    data: CategoryUpdate,
+    category_update: CategoryUpdate,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(ensure_admin)
 ):
-    
-    category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+    updated_category = update_category_service(category_id, category_update, db)
 
-
-    update_data = data.model_dump(exclude_unset=True)
-    
-    # valida team se estiver no payload
-    if "team_id" in update_data:
-        team = db.query(TeamModel).filter(TeamModel.id == update_data["team_id"]).first()
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
-        
-    if "name" in update_data:
-        
-        category_name_already_registered = db.query(CategoryModel).filter(
-            CategoryModel.name == update_data["name"],
-            CategoryModel.id != category_id
-        ).first()
-    
-        if category_name_already_registered:
-            raise HTTPException(status_code=400, detail="There is already a category registered with this name")
-        
-
-    for category_attribute, updated_value in update_data.items():
-        setattr(category, category_attribute, updated_value)
-
-
-    db.commit()
-    db.refresh(category)
-
-    return category
+    return updated_category
 
 @router.delete("/{category_id}")
 def delete_category(
@@ -110,11 +64,6 @@ def delete_category(
     current_user: UserModel = Depends(ensure_admin)
 ):
    
-    category = db.query(CategoryModel).filter(CategoryModel.id == category_id).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-
-    db.delete(category)
-    db.commit()
+    delete_category_service(category_id, db)
 
     return {"message": "Category deleted successfully"}

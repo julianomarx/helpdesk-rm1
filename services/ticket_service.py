@@ -247,3 +247,38 @@ def assign_ticket_team_service(
     db.add(log)
     
     return ticket
+
+def cancel_ticket_service(
+    ticket_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    ensure_user_can_access_ticket(ticket, current_user)
+    
+    roles_allowed_to_cancel_tickets = [ 
+        RoleEnum.client_manager, RoleEnum.client_receptionist, RoleEnum.admin 
+    ]
+    
+    if current_user.role not in roles_allowed_to_cancel_tickets:
+        raise HTTPException(status_code=403, detail="Only managers or receptionist can cancell tickets")
+    
+    ticket.status = StatusEnum.cancelled
+    
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.status_changed.value,
+        value=StatusEnum.cancelled.value
+    )
+    
+    db.add(log)
+    db.commit()
+    
+    db.refresh(ticket)
+    
+    return ticket

@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class RoleEnum(str, Enum):
     admin = "admin"
     agent = "agent"

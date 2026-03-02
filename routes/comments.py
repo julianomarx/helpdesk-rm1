@@ -25,7 +25,8 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=CommentSchema)
-def create_comment(comment: CommentCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+def create_comment(
+    comment: CommentCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     
     ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
     

@@ -12,7 +12,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service
+from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -194,3 +194,12 @@ def assign_agent(
     
     return ticket
 
+@router.put("/{ticket_id}/cancel", response_model=TicketOut)
+def cancel_ticket(
+    ticket_id: int,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    ticket = cancel_ticket_service(ticket_id, current_user, db)
+    
+    return ticket
