@@ -85,7 +85,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(SAEnum(RoleEnum), nullable=False)
+    role = Column(SAEnum(RoleEnum, native_enum=False), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -103,9 +103,17 @@ class Ticket(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
-    status = Column(SAEnum(StatusEnum), nullable=False, default=StatusEnum.open)
-    progress = Column(SAEnum(ProgressEnum), nullable=False, default=ProgressEnum.waiting)
-    priority = Column(SAEnum(PriorityEnum), nullable=False, default=PriorityEnum.low)
+    status = Column(SAEnum(StatusEnum, native_enum=False),nullable=False,default=StatusEnum.open)
+    progress = Column(
+    SAEnum(ProgressEnum, native_enum=False),
+    nullable=False,
+    default=ProgressEnum.waiting
+)
+    priority = Column(
+    SAEnum(PriorityEnum, native_enum=False),
+    nullable=False,
+    default=PriorityEnum.low
+)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
