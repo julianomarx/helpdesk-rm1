@@ -43,10 +43,10 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[UserMo
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
-        # 1️⃣ Decodifica o token JWT usando a chave secreta e o algoritmo definido
+        # Decodifica o token JWT usando a chave secreta e o algoritmo definido
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         
-        # 2️⃣ Pega o 'sub' do payload, que é o ID do usuário
+        #  Pega o 'sub' do payload, que é o ID do usuário
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(
@@ -56,17 +56,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             )
         
     except JWTError:
-        # 3️⃣ Se o token estiver errado ou expirado, retorna 401
+        #  Se o token estiver errado ou expirado, retorna 401
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 4️⃣ Busca o usuário no banco usando o ID do token
+    # Busca o usuário no banco usando o ID do token
     user = db.query(UserModel).filter(UserModel.id == int(user_id)).first()
     
-    # 5️⃣ Se não existir, retorna 401
+    # Se não existir, retorna 401
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,7 +74,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 6️⃣ Retorna o usuário autenticado
+    # Retorna o usuário autenticado
     return user    
     
 def create_access_token(user: UserModel) -> str:

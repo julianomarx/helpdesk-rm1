@@ -4,11 +4,11 @@ from typing import List
 
 from models import Team as TeamModel
 from models import User as UserModel, UserTeam as UserTeamModel
-from schemas import TeamBase, Team
+from schemas import TeamBase, Team, User
 from database import get_db
 from auth_utils import get_current_user
 
-from services.team_service import add_user_to_team_service
+from services.team_service import add_user_to_team_service, list_team_users_service
 from services.authorization import ensure_admin
 
 router = APIRouter(
@@ -78,3 +78,13 @@ def delete_team(
     db.commit()
     
     return { "message": f"Team - {team_id} - deleted" }
+
+@router.get("/{team_id}/users", response_model=List[User])
+def list_team_users(
+    team_id: int, 
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team_users = list_team_users_service(team_id, current_user, db)
+    
+    return team_users

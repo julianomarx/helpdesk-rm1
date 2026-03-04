@@ -282,3 +282,37 @@ def cancel_ticket_service(
     db.refresh(ticket)
     
     return ticket
+
+def close_ticket_service(
+    ticket_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+    
+    ensure_user_can_access_ticket(ticket, current_user) 
+    
+    if current_user.role == RoleEnum.agent:
+        raise HTTPException(status_code=403, detail="Tickets can only be closed from the client side")
+    
+    ticket.status = StatusEnum.closed.value
+    ticket.progress = ProgressEnum.done.value
+    
+    log = TicketLogModel(
+        user_id=current_user.id,
+        ticket_id=ticket.id,
+        action=LogActionEnum.ticket_closed.value,
+        value=StatusEnum.closed.value
+    )
+    
+    db.add(ticket)
+    db.add(log)
+    
+    db.commit()
+    
+    db.refresh(ticket)
+    
+    return ticket
