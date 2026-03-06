@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from database import get_db
 from models import User as UserModel
 from auth_utils import create_access_token, verify_password, get_current_user  # funções auxiliares
+
 from schemas import Token
 from schemas import User
 
