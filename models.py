@@ -44,7 +44,7 @@ class LogActionEnum(str, PyEnum):
     priority_changed = "priority_changed"
     team_changed = "team_changed"                   #feito
     category_changed = "category_changed"
-    subcategory_changed = "subcategory_changed"
+    subcategory_changed = "subcategory_changed"     
 
     # Comments
     comment_updated = "comment_updated"

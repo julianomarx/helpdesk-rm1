@@ -4,7 +4,7 @@ from typing import List
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel, Category as CategoryModel
 from models import LogActionEnum
-from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments
+from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments, SubcategoryUpdate
 from schemas import StatusEnum, ProgressEnum
 
 from models import RoleEnum
@@ -12,7 +12,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service, close_ticket_service
+from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service, close_ticket_service, update_ticket_subcategory_service
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -63,7 +63,7 @@ def update_ticket(
     
     return ticket
 
-@router.put("/{ticket_id}/assign_team/{team_id}", response_model=TicketOut)
+@router.put("/{ticket_id}/assign-team/{team_id}", response_model=TicketOut)
 def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     
     ticket = assign_ticket_team_service(ticket_id, team_id, current_user, db)
@@ -71,6 +71,26 @@ def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_d
     db.commit()
     db.refresh(ticket)
     
+    return ticket
+
+@router.put("/{ticket_id}/subcategory", response_model=TicketOut)
+def update_ticket_subcategory(
+    ticket_id: int,
+    payload: SubcategoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+
+    ticket = update_ticket_subcategory_service(
+        ticket_id,
+        payload.subcategory_id,
+        current_user,
+        db
+    )
+
+    db.commit()
+    db.refresh(ticket)
+
     return ticket
 
 @router.put("/start-ticket/{ticket_id}", response_model=TicketOut)

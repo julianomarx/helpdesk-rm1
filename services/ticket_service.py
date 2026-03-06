@@ -237,6 +237,10 @@ def assign_ticket_team_service(
     
     ticket.assigned_team_id = team_id
     
+    ticket.assigned_to = None
+    
+    ticket.progress = ProgressEnum.waiting.value
+    
     log = TicketLogModel(
         ticket_id=ticket.id,
         user_id=current_user.id,
@@ -246,6 +250,43 @@ def assign_ticket_team_service(
     
     db.add(log)
     
+    return ticket
+
+def update_ticket_subcategory_service(
+    ticket_id: int,
+    subcategory_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    if current_user.role not in [ RoleEnum.admin, RoleEnum.agent ]:
+        raise HTTPException(status_code=403, detail="Only admins or agents can re-assign ticket's subcategory manually")
+    
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+
+    if not ticket:
+        raise HTTPException(404, "Ticket não encontrado")
+    
+    subcategory = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
+    
+    if not subcategory:
+        raise HTTPException(status_code=404, detail="Subcategory not found")
+
+    old_subcategory = ticket.subcategory_id
+
+    ticket.subcategory_id = subcategory_id
+    
+    #Esse service foi feito para trocar a categoria automaticamente, caso mudem a subcategoria de um ticket
+    ticket.category_id = subcategory.category_id
+
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=LogActionEnum.subcategory_changed.value,
+        value=str(subcategory_id)
+    )
+
+    db.add(log)
+
     return ticket
 
 def cancel_ticket_service(

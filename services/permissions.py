@@ -5,7 +5,14 @@ TICKET_FIELD_UPDATE_PERMISSIONS = {
         "hotel_id", "progress",
         "title", "description"
     },
-    "agent": {"status", "priority", "progress", "assigned_to"},
+    "agent": {
+        "status",
+        "priority",
+        "progress",
+        "assigned_to",
+        "category_id",
+        "subcategory_id"
+    },
     "client_manager": {"title", "description"},
     "client_receptionist": {"title", "description"},
 }

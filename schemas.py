@@ -136,6 +136,9 @@ class Team(TeamBase):
     class Config:
         from_attributes = True
         
+class SubcategoryUpdate(BaseModel):
+    subcategory_id: int
+        
         
 # --------------------
 # Category
@@ -199,7 +202,9 @@ class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[PriorityEnum] = None
-    progress: Optional[ProgressEnum] = None  
+    progress: Optional[ProgressEnum] = None
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None  
 
 class Ticket(TicketCreate):
     id: int

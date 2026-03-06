@@ -40,9 +40,16 @@ def create_subcategory(
 @router.get("/", response_model=List[SubCategory])
 def list_subcategories(
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    category_id: int | None = None
 ):
-    return db.query(SubCategoryModel).all()
+    
+    query = db.query(SubCategoryModel)
+    
+    if category_id:
+        query = query.filter(SubCategoryModel.category_id == category_id)
+    
+    return query.all()
 
 
 @router.get("/{subcategory_id}", response_model=SubCategory)
