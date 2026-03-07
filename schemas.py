@@ -228,6 +228,14 @@ class TicketOut(Ticket):
 
 class TicketWithComments(TicketOut):  
     comments: List[CommentOut] = []
+    
+    
+    
+    
+    
+# --------------------
+# TIMELOGS
+# --------------------
 
 class TimeLogBase(BaseModel):
     ticket_id: int
@@ -254,6 +262,22 @@ class TicketLogOut(BaseModel):
     value: Optional[str]
     created_at: datetime
     user: Optional[User]
+
+    class Config:
+        from_attributes = True
+        
+# --------------------
+# ATTACHMENTS
+# --------------------
+
+class AttachmentOut(BaseModel):
+    id: int
+    file_name: str
+    mime_type: str | None
+    file_size: int | None
+    created_at: datetime
+    url: str
+    uploader: UserOut
 
     class Config:
         from_attributes = True

@@ -132,6 +132,7 @@ class Ticket(Base):
     assigned_team = relationship("Team", back_populates="tickets")
     category = relationship("Category", back_populates="tickets")
     subcategory = relationship("SubCategory", back_populates="tickets")
+    attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
     
 class Category(Base):
     __tablename__ = "categories"
@@ -222,3 +223,25 @@ class UserTeam(Base):
     
     user = relationship("User", back_populates="teams")
     team = relationship("Team", back_populates="users")
+    
+class Attachment(Base):
+    __tablename__ = "attachments"
+    
+    id = Column(Integer, primary_key=True)
+    
+    ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False)
+    
+    file_name = Column(String(255), nullable=False)
+    stored_name = Column(String(255), nullable=False)
+    
+    mime_type = Column(String(100))
+    file_size = Column(Integer)
+    
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    #relacionamento
+    ticket = relationship("Ticket", back_populates="attachments")
+    uploader = relationship("User")
