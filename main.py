@@ -19,12 +19,11 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # permite apenas essas origens
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],  # qualquer site pode acessar /docs
+    allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
-    
 )
+
 # Inclui os routers
 app.include_router(auth.router)
 app.include_router(users.router)
