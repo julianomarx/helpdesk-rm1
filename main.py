@@ -1,30 +1,27 @@
 from fastapi import FastAPI
-from database import engine, Base
-from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments # sua pasta routes
 from fastapi.middleware.cors import CORSMiddleware
-
 from fastapi.staticfiles import StaticFiles
+from database import engine, Base
+from routes import (
+    users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments
+)
 
-
-# Cria todas as tabelas que ainda não existem 
+# Cria as tabelas que ainda não existem
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Helpdesk Portal")
+# Desativa o docs padrão e cria rota custom
+app = FastAPI(title="Helpdesk Portal", docs_url=None, redoc_url=None)
 
-origins = [
-    "http://127.0.0.1:3000",
-    "http://localhost:3000",
-]
-
-
+# CORS liberado para qualquer origem (só para o Swagger funcionar fora)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # qualquer site pode acessar /docs
-    allow_methods=["GET", "OPTIONS"],
+    allow_origins=["*"],   # aceita qualquer origem
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Inclui os routers
+# Routers da aplicação
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(tickets.router)
@@ -36,8 +33,15 @@ app.include_router(subcategories.router)
 app.include_router(ticket_logs.router)
 app.include_router(attachments.router)
 
-#Serve os arquivos estáticos (Attachments)
+# Serve arquivos estáticos (attachments)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Serve a documentação Swagger pública
+from fastapi.openapi.docs import get_swagger_ui_html
+
+@app.get("/docs", include_in_schema=False)
+async def swagger_docs():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Helpdesk Docs")
 
 @app.get("/")
 def root():
