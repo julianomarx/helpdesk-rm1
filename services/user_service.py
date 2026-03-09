@@ -17,8 +17,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def create_user_service(
     new_user: UserCreateWithHotels, 
-    current_user: UserModel, 
-    db: Session ):
+    db: Session,
+    current_user: UserModel
+    ):
     
     if current_user.role in [RoleEnum.agent, RoleEnum.client_receptionist]:
         raise HTTPException(status_code=403, detail="Your user dont have permission to create another user")
@@ -44,7 +45,7 @@ def create_user_service(
     
     if new_user.hotel_ids:
         ensure_hotels_exist(new_user.hotel_ids, db)
-        
+
         for hid in set(new_user.hotel_ids):
             db.add(UserHotelModel(
                 user_id=created_user.id,

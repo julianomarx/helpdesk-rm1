@@ -25,7 +25,7 @@ def create_user(
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
-    created_user = create_user_service(user, current_user, db)
+    created_user = create_user_service(user, db, current_user)
     
     db.commit()
     db.refresh(created_user)

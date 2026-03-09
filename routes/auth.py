@@ -36,7 +36,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
 
     # Cria o token com expiração fixa (do .env)
-    access_token = create_access_token(user)
+    access_token = create_access_token(user, db)
 
     return {
         "access_token": access_token,

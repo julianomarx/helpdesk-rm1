@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User as UserModel, Ticket as TicketModel
-from models import Hotel as HotelModel, UserHotel as UserHotelModel
+from models import Hotel as HotelModel
+from models import UserHotel as UserHotelModel
 from schemas import User
 from models import RoleEnum
 
@@ -82,13 +83,15 @@ def create_access_token(user: UserModel, db: Session) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")))
 
-
-    user_hotels_query = (
-        db.query(HotelModel.id, HotelModel.code, HotelModel.name)
-        .join(UserHotelModel, UserHotelModel.hotel_id == HotelModel.id)
-        .filter(UserHotelModel.id == user.id)
-        .all()
-    )
+    if user.role in ["admin", "agent"]:
+        user_hotels_query = db.query(HotelModel.id, HotelModel.code, HotelModel.name).all()
+    else:
+        user_hotels_query = (
+            db.query(HotelModel.id, HotelModel.code, HotelModel.name)
+            .join(UserHotelModel, UserHotelModel.hotel_id == HotelModel.id)
+            .filter(UserHotelModel.user_id == user.id)
+            .all()
+        )
 
     user_hotels = [
         {"id": h.id, "code": h.code, "name": h.name} for h in user_hotels_query
