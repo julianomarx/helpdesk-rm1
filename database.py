@@ -8,13 +8,11 @@ import urllib.parse
 load_dotenv()
 
 # Faz URL-encoding da senha para evitar problemas com caracteres especiais
-password = urllib.parse.quote_plus(os.getenv('DB_PASSWORD', '1234@abcd'))
+password = urllib.parse.quote_plus(os.getenv("DB_PASSWORD"))
 
-# Monta a URL de conexão
 DATABASE_URL = (
-    f"mysql+mysqlconnector://{os.getenv('DB_USER', 'rm1')}:"
-    f"{password}@{os.getenv('DB_HOST', 'localhost')}:3306/"
-    f"{os.getenv('DB_NAME', 'chamados_db')}"
+    f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{password}"
+    f"@{os.getenv('DB_HOST')}:3306/{os.getenv('DB_NAME')}"
 )
 
 # Cria engine e sessão

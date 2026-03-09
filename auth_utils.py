@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User as UserModel, Ticket as TicketModel
+from models import Hotel as HotelModel, UserHotel as UserHotelModel
 from schemas import User
 from models import RoleEnum
 
@@ -77,13 +78,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     # Retorna o usuário autenticado
     return user    
     
-def create_access_token(user: UserModel) -> str:
+def create_access_token(user: UserModel, db: Session) -> str:
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")))
 
+
+    user_hotels_query = (
+        db.query(HotelModel.id, HotelModel.code, HotelModel.name)
+        .join(UserHotelModel, UserHotelModel.hotel_id == HotelModel.id)
+        .filter(UserHotelModel.id == user.id)
+        .all()
+    )
+
     user_hotels = [
-    {"id": uh.hotel.id, "code": uh.hotel.code, "name": uh.hotel.name}
-    for uh in user.hotels
+        {"id": h.id, "code": h.code, "name": h.name} for h in user_hotels_query
     ]
     
     categories = [
@@ -95,36 +103,36 @@ def create_access_token(user: UserModel) -> str:
     ]
     
     subcategories = [
-        {"id": 19, "name": "Monitores e Periféricos", "category_id": 1},
-        {"id": 20, "name": "Usuários/Email (Acessos, Senhas, Opera)", "category_id": 1},
-        {"id": 21, "name": "Impressoras e Scanners", "category_id": 1},
-        {"id": 22, "name": "Impressora Fiscal (TÉRMICA)", "category_id": 1},
-        {"id": 23, "name": "Rede e Internet (ADM / WiFi)", "category_id": 1},
-        {"id": 24, "name": "Infraestrutura (CPD e Equipamentos)", "category_id": 1},
-        {"id": 25, "name": "Sistema de Chaves Eletrônicas", "category_id": 1},
-        {"id": 26, "name": "Sistema de Ponto", "category_id": 1},
-        {"id": 27, "name": "Outros", "category_id": 1},
+        {"id": 1, "name": "Monitores e Periféricos", "category_id": 1},
+        {"id": 2, "name": "Usuários/Email (Acessos, Senhas, Opera)", "category_id": 1},
+        {"id": 3, "name": "Impressoras e Scanners", "category_id": 1},
+        {"id": 4, "name": "Impressora Fiscal (TÉRMICA)", "category_id": 1},
+        {"id": 5, "name": "Rede e Internet (ADM / WiFi)", "category_id": 1},
+        {"id": 6, "name": "Infraestrutura (CPD e Equipamentos)", "category_id": 1},
+        {"id": 7, "name": "Sistema de Chaves Eletrônicas", "category_id": 1},
+        {"id": 8, "name": "Sistema de Ponto", "category_id": 1},
+        {"id": 9, "name": "Outros", "category_id": 1},
 
-        {"id": 28, "name": "Relatórios", "category_id": 2},
-        {"id": 29, "name": "Permissões", "category_id": 2},
-        {"id": 30, "name": "Problemas Gerais", "category_id": 2},
-        {"id": 31, "name": "Chaves Magnetizadas pelo Opera", "category_id": 2},
+        {"id": 10, "name": "Relatórios", "category_id": 2},
+        {"id": 11, "name": "Permissões", "category_id": 2},
+        {"id": 12, "name": "Problemas Gerais", "category_id": 2},
+        {"id": 13, "name": "Chaves Magnetizadas pelo Opera", "category_id": 2},
 
-        {"id": 32, "name": "Notas", "category_id": 3},
-        {"id": 33, "name": "Boletos", "category_id": 3},
-        {"id": 34, "name": "Outros", "category_id": 3},
+        {"id": 14, "name": "Notas", "category_id": 3},
+        {"id": 15, "name": "Boletos", "category_id": 3},
+        {"id": 16, "name": "Outros", "category_id": 3},
 
-        {"id": 35, "name": "Cadastro de Itens", "category_id": 4},
-        {"id": 36, "name": "Busca de Hóspedes por Apartamentos", "category_id": 4},
-        {"id": 37, "name": "Impressão", "category_id": 4},
-        {"id": 38, "name": "Problemas Gerais", "category_id": 4},
-        {"id": 39, "name": "Outros", "category_id": 4},
+        {"id": 17, "name": "Cadastro de Itens", "category_id": 4},
+        {"id": 18, "name": "Busca de Hóspedes por Apartamentos", "category_id": 4},
+        {"id": 19, "name": "Impressão", "category_id": 4},
+        {"id": 20, "name": "Problemas Gerais", "category_id": 4},
+        {"id": 21, "name": "Outros", "category_id": 4},
 
-        {"id": 40, "name": "Novo usuário", "category_id": 5},
-        {"id": 41, "name": "Inativar usuário", "category_id": 5},
-        {"id": 42, "name": "Substituição de usuário", "category_id": 5},
-        {"id": 43, "name": "Problemas de acesso/permissões/email", "category_id": 5},
-        {"id": 44, "name": "Outros", "category_id": 5}
+        {"id": 22, "name": "Novo usuário", "category_id": 5},
+        {"id": 23, "name": "Inativar usuário", "category_id": 5},
+        {"id": 24, "name": "Substituição de usuário", "category_id": 5},
+        {"id": 25, "name": "Problemas de acesso/permissões/email", "category_id": 5},
+        {"id": 26, "name": "Outros", "category_id": 5}
     ]
 
 
