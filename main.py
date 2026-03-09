@@ -1,27 +1,37 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
-from database import engine, Base
-from routes import (
-    users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments
-)
 
-# Cria as tabelas que ainda não existem
+# Importa seus routers
+from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments
+
+from database import Base, engine
+
+# Cria as tabelas do banco, se não existirem
 Base.metadata.create_all(bind=engine)
 
-# Desativa o docs padrão e cria rota custom
-app = FastAPI(title="Helpdesk Portal", docs_url=None, redoc_url=None)
+app = FastAPI(title="Helpdesk Portal")
 
-# CORS liberado para qualquer origem (só para o Swagger funcionar fora)
+# CORS - ajuste conforme seu front / domínio externo
+origins = [
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "*",  # liberando todas origens para documentação funcionar fora (use com cuidado em produção)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # aceita qualquer origem
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Routers da aplicação
+# Define o esquema OAuth2 para Swagger (botão Authorize)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# Inclui os routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(tickets.router)
@@ -33,16 +43,15 @@ app.include_router(subcategories.router)
 app.include_router(ticket_logs.router)
 app.include_router(attachments.router)
 
-# Serve arquivos estáticos (attachments)
+# Serve arquivos estáticos (ex: uploads)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Serve a documentação Swagger pública
-from fastapi.openapi.docs import get_swagger_ui_html
-
-@app.get("/docs", include_in_schema=False)
-async def swagger_docs():
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="Helpdesk Docs")
-
+# Rota root simples
 @app.get("/")
 def root():
     return {"message": "Helpdesk API Online"}
+
+# Exemplo de rota protegida usando o oauth2_scheme para Swagger funcionar direitinho
+@app.get("/secure-route")
+def secure_route(token: str = Depends(oauth2_scheme)):
+    return {"token_received": token}
