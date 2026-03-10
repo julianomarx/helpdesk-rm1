@@ -122,7 +122,7 @@ class Comment(CommentCreate):
         from_attributes = True
 
 class CommentOut(Comment):
-    author: User
+    author: UserOut
     
 # --------------------
 # TEAMS
@@ -219,8 +219,8 @@ class Ticket(TicketCreate):
 
 class TicketOut(Ticket):
     hotel: Hotel
-    creator: User
-    assignee: Optional[User] = None
+    creator: UserOut
+    assignee: Optional[UserOut] = None
     assigned_team: Optional[Team] = None
     category: Optional[Category] = None
     subcategory: Optional[SubCategory] = None
@@ -254,14 +254,14 @@ class TimeLogResponse(TimeLogBase):
     total_seconds: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
         
 class TicketLogOut(BaseModel):
     id: int
     action: str
     value: Optional[str]
     created_at: datetime
-    user: Optional[User]
+    user: Optional[UserOut]
 
     class Config:
         from_attributes = True
