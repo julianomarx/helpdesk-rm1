@@ -1,17 +1,20 @@
-# main.py
+import os
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
-# Routers
 from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments
+from config import validate_env
+
+validate_env()
 
 from database import Base, engine
 
-# Cria tabelas do banco
-Base.metadata.create_all(bind=engine)
+#Só cria as tabelas se estiver em embiente DEV, em PRDO somente via MIGRATION
+if os.getenv("ENV") == "dev":
+    Base.metadata.create_all(bind=engine)
 
 # Inicializa app
 app = FastAPI(
@@ -20,7 +23,6 @@ app = FastAPI(
     root_path="/api"
 )
 
-# --------- FIX SWAGGER OPENAPI 3.1 -> 3.0.3 ---------
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -32,16 +34,13 @@ def custom_openapi():
         servers=[{"url": "/api"}]
     )
 
-    # força versão compatível com Swagger UI
     openapi_schema["openapi"] = "3.0.3"
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
 app.openapi = custom_openapi
-# ----------------------------------------------------
 
-# CORS - liberando para Swagger externo (use com cuidado em produção)
 origins = [
     "http://127.0.0.1:3000",
     "http://localhost:3000",
@@ -56,7 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# OAuth2 para Swagger
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Inclui routers
