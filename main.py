@@ -20,7 +20,7 @@ if os.getenv("ENV") == "dev":
 app = FastAPI(
     title="Helpdesk Portal",
     version="1.0.0",
-    root_path="/api"
+    root_path="/api",
     redirect_slashes=False
 )
 
