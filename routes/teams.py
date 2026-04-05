@@ -79,7 +79,7 @@ def delete_team(
     
     return { "message": f"Team - {team_id} - deleted" }
 
-@router.get("/{team_id}/users", response_model=List[User])
+@router.get("/{team_id}/users/", response_model=List[User])
 def list_team_users(
     team_id: int, 
     current_user: UserModel = Depends(get_current_user),
