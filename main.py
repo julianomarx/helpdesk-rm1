@@ -21,6 +21,7 @@ app = FastAPI(
     title="Helpdesk Portal",
     version="1.0.0",
     root_path="/api"
+    redirect_slashes=False
 )
 
 def custom_openapi():
