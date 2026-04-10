@@ -124,6 +124,9 @@ def reopen_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
+    if ticket.status != StatusEnum.closed.value:
+        raise HTTPException(status_code=400, detail="Apenas tickets fechados podem ser reabertos")
+    
     ensure_user_can_access_ticket(ticket, current_user)
     
     ticket.status = StatusEnum.open.value

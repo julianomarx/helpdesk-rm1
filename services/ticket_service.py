@@ -330,14 +330,19 @@ def close_ticket_service(
     db: Session
 ):
     ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    
+
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    ensure_user_can_access_ticket(ticket, current_user) 
+    if ticket.progress != ProgressEnum.awaiting_confirmation.value:
+        raise HTTPException(status_code=400, detail="Ticket só pode ser fechado se estiver aguardando confirmação de encerramento")
     
-    if current_user.role == RoleEnum.agent:
-        raise HTTPException(status_code=403, detail="Tickets can only be closed from the client side")
+    if current_user.role != RoleEnum.admin:
+        
+        ensure_user_can_access_ticket(ticket, current_user) 
+    
+        if current_user.role == RoleEnum.agent:
+            raise HTTPException(status_code=403, detail="Tickets can only be closed from the client side")
     
     ticket.status = StatusEnum.closed.value
     ticket.progress = ProgressEnum.done.value
