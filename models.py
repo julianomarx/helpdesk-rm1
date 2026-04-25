@@ -35,7 +35,8 @@ class LogActionEnum(str, PyEnum):
     ticket_closed = "ticket_closed"                 #Feito 
     ticket_reopened = "ticket_reopened"             #fazendo 
     ticket_deleted = "ticket_deleted"               #Algo que foi deletado não tem como ter log
-    ticket_cancelled = "ticket_cancelled"           
+    ticket_cancelled = "ticket_cancelled" 
+    ticket_returned = "ticket_returned"          
 
     # Core changes
     status_changed = "status_changed"

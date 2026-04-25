@@ -13,7 +13,7 @@ from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
 from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
-from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service         
+from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service       
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -126,7 +126,18 @@ def reopen_ticket(
 
     ticket = reopen_ticket_service(ticket_id, current_user, db)
     
-    return ticket                   
+    return ticket  
+
+@router.put("/return-ticket/{ticket_id}")
+def return_ticket(
+    ticket_id: int, 
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):                 
+    
+    ticket = return_ticket_to_queue_service(ticket_id, current_user, db)
+
+    return ticket
 
 @router.delete("/delete-ticket/{ticket_id}")
 def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

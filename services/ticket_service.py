@@ -396,3 +396,37 @@ def reopen_ticket_service(
     db.refresh(ticket)  
 
     return ticket  
+
+def return_ticket_to_queue_service(
+    ticket_id: int, 
+    current_user: UserModel, 
+    db: Session
+):
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não localizado")
+
+    if ticket.progress != ProgressEnum.awaiting_confirmation:
+        raise HTTPException(status_code=401, detail="Apenas Tickets enviados para encerramento podem ser retornados à fila de atendimento")
+
+    ensure_user_can_access_ticket(ticket, current_user)
+
+    ticket.status = StatusEnum.open.value
+    ticket.progress = ProgressEnum.waiting.value
+    ticket.assigned_to = None
+
+    log = TicketLogModel (
+        user_id=current_user.id,
+        ticket_id=ticket.id,
+        action=LogActionEnum.ticket_returned.value,
+        value=LogActionEnum.ticket_returned.value
+    )
+
+    db.add(ticket)
+    db.add(log)
+
+    db.commit()
+    db.refresh(ticket)
+
+    return ticket
