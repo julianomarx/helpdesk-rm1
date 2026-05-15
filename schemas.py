@@ -87,8 +87,14 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True
-        
 
+class UserBasic(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+        
 class UserHotelsUpdate(BaseModel):
     hotel_ids: List[int]
 
@@ -122,7 +128,7 @@ class Comment(CommentCreate):
         from_attributes = True
 
 class CommentOut(Comment):
-    author: UserOut
+    author: UserBasic
     
 # --------------------
 # TEAMS
@@ -219,8 +225,8 @@ class Ticket(TicketCreate):
 
 class TicketOut(Ticket):
     hotel: Hotel
-    creator: UserOut
-    assignee: Optional[UserOut] = None
+    creator: UserBasic
+    assignee: Optional[UserBasic] = None
     assigned_team: Optional[Team] = None
     category: Optional[Category] = None
     subcategory: Optional[SubCategory] = None
@@ -261,7 +267,7 @@ class TicketLogOut(BaseModel):
     action: str
     value: Optional[str]
     created_at: datetime
-    user: Optional[UserOut]
+    user: Optional[UserBasic]
 
     class Config:
         from_attributes = True
@@ -277,7 +283,7 @@ class AttachmentOut(BaseModel):
     file_size: int | None
     created_at: datetime
     url: str
-    uploader: UserOut
+    uploader: UserBasic
 
     class Config:
         from_attributes = True

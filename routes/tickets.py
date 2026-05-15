@@ -180,6 +180,9 @@ def assign_agent(
     if ticket.assigned_to == target_user.id:
         return ticket
     
+    if ticket.progress == ProgressEnum.waiting.value:
+        raise HTTPException(status_code=401, detail="Não se pode transferir chamados que ainda estão aguardando atendimento")
+    
     assign_agent_to_ticket(ticket, current_user, target_user, db)
     
     db.commit()
