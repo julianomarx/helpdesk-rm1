@@ -142,7 +142,6 @@ def create_access_token(user: UserModel, db: Session) -> str:
     role_menus = {
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
-            {"label": "Usuários", "page": "users"},
             {"label": "Criar Usuário", "page": "create-user"},
             {"label": "Chamados", "page": "tickets"},
             {"label": "Abrir chamado", "page": "create-ticket"},

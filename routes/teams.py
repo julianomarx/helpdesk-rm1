@@ -90,8 +90,6 @@ def list_team_users(
 ):
     return list_team_users_service(
         team_id=team_id,
-        role=role,
-        search=search,
         current_user=current_user,
         db=db
     )
