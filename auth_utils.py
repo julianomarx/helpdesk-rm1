@@ -145,7 +145,8 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Usuários", "page": "users"},
             {"label": "Criar Usuário", "page": "create-user"},
             {"label": "Chamados", "page": "tickets"},
-            {"label": "Abrir chamado", "page": "create-ticket"}
+            {"label": "Abrir chamado", "page": "create-ticket"},
+            {"label": "Gerenciar usuários", "page": "manage-users"}
         ],
         "agent": [
             {"label": "Chamados", "page": "tickets"},
@@ -155,7 +156,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Abrir chamado", "page": "create-ticket"},
             {"label": "Meus chamados", "page": "tickets"},
             {"label": "Criar usuário", "page": "create-user"},
-            {"label": "Gerenciar usuários", "page": "users"},
+            {"label": "Gerenciar usuários", "page": "manage-users"},
         ],
         "client_receptionist": [
             {"label": "Abrir chamado", "page": "create-ticket"},

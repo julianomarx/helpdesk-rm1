@@ -104,84 +104,84 @@ def list_users_service(
     db: Session,
     current_user: UserModel,
     hotel_id: int | None = None,
-    role: RoleEnum |None = None
+    role: RoleEnum | None = None,
+    search: str | None = None
 ):
-    
     query = db.query(UserModel)
-    
-    #admin
+
+    # -------------------
+    # Escopo por permissão
+    # -------------------
+
     if current_user.role == RoleEnum.admin:
-        if hotel_id:      
-            query = query.join(UserHotelModel).filter(
-                UserHotelModel.hotel_id == hotel_id
-            )
-        
-        if role:
-            query = query.filter(UserModel.role == role)
-            
-        return query.distinct().all()
-        
-    #agent 
+        pass
+
     elif current_user.role == RoleEnum.agent:
-        if not hotel_id:
-            raise HTTPException(status_code=400, detail="Agents must provide hotel_id to get users")
-        
+
         accessible_hotels = get_user_accessible_hotel_ids(current_user)
 
-        if hotel_id not in accessible_hotels:
-            raise HTTPException(status_code=403, detail="You dont have access to this hotel")
-        
+        query = (
+            query.join(UserHotelModel)
+            .filter(
+                UserHotelModel.hotel_id.in_(
+                    accessible_hotels
+                )
+            )
+        )
+
+        query = query.filter(
+            UserModel.role.in_([
+                RoleEnum.client_manager,
+                RoleEnum.client_receptionist
+            ])
+        )
+
+    elif current_user.role == RoleEnum.client_manager:
+
+        accessible_hotels = get_user_accessible_hotel_ids(current_user)
+
+        query = (
+            query.join(UserHotelModel)
+            .filter(
+                UserHotelModel.hotel_id.in_(
+                    accessible_hotels
+                )
+            )
+        )
+
+        query = query.filter(
+            UserModel.role.in_([
+                RoleEnum.client_manager,
+                RoleEnum.client_receptionist
+            ])
+        )
+
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed"
+        )
+
+    # -------------------
+    # Filtros opcionais
+    # -------------------
+
+    if hotel_id:
         query = query.join(UserHotelModel).filter(
             UserHotelModel.hotel_id == hotel_id
         )
-        
-        query = query.filter(UserModel.role != RoleEnum.admin)
-        
-        if role:
-            if role == RoleEnum.admin:
-                return []   
-             
-            query = query.filter(UserModel.role == role)
-            
-        return query.distinct().all()
-        
-    elif current_user.role == RoleEnum.client_manager:
-        
-        accessible_hotels = get_user_accessible_hotel_ids(current_user)
-        
-        query = query.join(UserHotelModel).filter(
-            UserHotelModel.hotel_id.in_(accessible_hotels)
-        )   
-        
-        
-        if hotel_id:
-            if hotel_id not in accessible_hotels:
-                raise HTTPException(status_code=403, detail="Not allowed for this hotel")
-            
-            query = query.filter(UserHotelModel.hotel_id == hotel_id)
-            
-        allowed_roles = [
-            RoleEnum.client_manager,
-            RoleEnum.client_receptionist
-        ]
-        
-        query = query.filter(UserModel.role.in_(allowed_roles))
-        
-        if role:
-            if role not in allowed_roles:
-                return []
-            
-            query = query.filter(UserModel.role == role)
-            
-        return query.distinct().all()
-        
-        
-    #receptionist 
-    elif current_user.role == RoleEnum.client_receptionist:
-        raise HTTPException(status_code=403, detail="Receptionists should not list users")
-    
-    else:
-        raise HTTPException(status_code=403, detail="Not allowed")
+
+    if role:
+        query = query.filter(
+            UserModel.role == role
+        )
+
+    if search:
+        query = query.filter(
+            UserModel.name.ilike(f"%{search}%")
+        )
+
+    return query.distinct().all()
     
 def get_user_service(
     current_user: UserModel,

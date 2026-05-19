@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 
 from models import Team as TeamModel
 from models import User as UserModel, UserTeam as UserTeamModel
+from schemas import RoleEnum
 from schemas import TeamBase, Team, User
 from database import get_db
 from auth_utils import get_current_user
@@ -82,9 +83,17 @@ def delete_team(
 @router.get("/{team_id}/users/", response_model=List[User])
 def list_team_users(
     team_id: int, 
+    role: RoleEnum | None = Query(default=None),
     current_user: UserModel = Depends(get_current_user),
+    search: str | None = Query(default=None),
     db: Session = Depends(get_db)
 ):
-    team_users = list_team_users_service(team_id, current_user, db)
+    return list_team_users_service(
+        team_id=team_id,
+        role=role,
+        search=search,
+        current_user=current_user,
+        db=db
+    )
     
     return team_users

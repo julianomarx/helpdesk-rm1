@@ -35,11 +35,12 @@ def create_user(
 @router.get("/", response_model=List[User])
 def list_users(
     hotel_id: int | None = Query(default=None),
-    role: int | None = Query(default=None),
+    role: RoleEnum | None = Query(default=None),
+    search: str | None = Query(default=None),
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
-    return list_users_service(db,current_user, hotel_id, role)
+    return list_users_service(db,current_user, hotel_id, role, search)
     
 @router.get("/{user_id}", response_model=User)
 def get_user(
