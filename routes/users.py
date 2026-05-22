@@ -42,14 +42,29 @@ def list_users(
 ):
     return list_users_service(db,current_user, hotel_id, role, search)
     
-@router.get("/{user_id}", response_model=User)
+@router.get("/{user_id}", response_model=UserOut)
 def get_user(
     user_id: int, 
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
     
-    return get_user_service(current_user, user_id, db)
+    user = get_user_service(current_user, user_id, db)
+    
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "hotels": [
+            {
+                "id": uh.hotel.id,
+                "code": uh.hotel.code,
+                "name": uh.hotel.name
+            }
+            for uh in user.hotels
+        ]
+    }
 
 @router.put("/{user_id}", response_model=User)
 def update_user(

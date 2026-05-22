@@ -149,6 +149,8 @@ def create_access_token(user: UserModel, db: Session) -> str:
         ],
         "agent": [
             {"label": "Chamados", "page": "tickets"},
+            {"label": "Criar Usuário", "page": "create-user"},
+            {"label": "Gerenciar usuários", "page": "manage-users"}
         ],
         "client_manager": [
             {"label": "Dashboard", "page": "dashboard"},

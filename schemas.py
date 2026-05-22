@@ -107,7 +107,7 @@ class UserHotelOut(BaseModel):
         from_attributes = True
 
 class UserOut(User):
-    hotels: List[UserHotelOut] = []
+    hotels: List[Hotel] = []
     
     
 # --------------------
