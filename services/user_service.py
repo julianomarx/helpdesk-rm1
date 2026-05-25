@@ -1,9 +1,9 @@
 from fastapi import Depends, HTTPException
-from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import UserHotelsUpdate, UserCreateWithHotels, UserUpdate
+from models import User as UserModel, UserHotel as UserHotelModel, UserTeam as UserTeamModel
+from schemas import UserHotelsUpdate, UserCreateWithHotels, UserUpdate, UserTeamsUpdate
 from models import RoleEnum
 
-from services.validations import ensure_hotels_exist
+from services.validations import ensure_hotels_exist, ensure_teams_exist
 
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
@@ -11,7 +11,7 @@ from passlib.context import CryptContext
 from services.validations import ensure_hotels_exist
 from services.authorization import get_user_accessible_hotel_ids
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -44,14 +44,20 @@ def create_user_service(
     db.flush()
     
     if new_user.hotel_ids:
-        ensure_hotels_exist(new_user.hotel_ids, db)
+        hotel_ids = list(set(new_user.hotel_ids))
 
-        for hid in set(new_user.hotel_ids):
-            db.add(UserHotelModel(
-                user_id=created_user.id,
-                hotel_id=hid
-            ))
-            
+        ensure_hotels_exist(hotel_ids, db)
+
+        db.bulk_insert_mappings(
+            UserHotelModel,
+            [
+                {
+                    "user_id": created_user.id,
+                    "hotel_id": hid
+                }
+                for hid in hotel_ids
+            ]
+        )
     
     db.commit()
     db.refresh(created_user)
@@ -92,14 +98,44 @@ def update_user_hotels_service(
         
     db.query(UserHotelModel).filter(UserHotelModel.user_id == target_user.id).delete()
     
-    for hotel_id in hotel_ids:
-        db.add(UserHotelModel(
-            user_id=target_user.id,
-            hotel_id=hotel_id
-        ))
-        
+    db.bulk_insert_mappings(
+        UserHotelModel,
+        [
+            {
+                "user_id": target_user.id,
+                "hotel_id": hotel_id
+            }
+            for hotel_id in hotel_ids
+        ]
+    )  
     return target_user
 
+def update_user_teams_service(
+    target_user_id: int, 
+    teams_update: UserTeamsUpdate, 
+    db: Session,
+    current_user: UserModel
+):
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    team_ids = teams_update.team_ids
+
+    ensure_teams_exist(team_ids, db)
+
+    db.query(UserTeamModel).filter(UserTeamModel.user_id == target_user.id).delete()
+
+    for team_id in team_ids:
+        db.add(UserTeamModel(
+            user_id=target_user.id,
+            team_id=team_id
+        ))
+
+    return target_user
+
+    
 def list_users_service(
     db: Session,
     current_user: UserModel,
@@ -188,7 +224,15 @@ def get_user_service(
     target_user_id: int,
     db: Session
 ):
-    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    target_user = (
+        db.query(UserModel)
+        .options(
+            selectinload(UserModel.hotels)
+            .selectinload(UserHotelModel.hotel)
+        )
+        .filter(UserModel.id == target_user_id)
+        .first()
+    )
 
     if not target_user: 
         raise HTTPException(status_code=404, detail="User not found")

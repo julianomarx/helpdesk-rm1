@@ -4,12 +4,12 @@ from typing import List
 from passlib.context import CryptContext
 
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, UserOut
+from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, UserOut, UserTeamsUpdate
 from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
 
-from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service, delete_user_service
+from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service, delete_user_service, update_user_teams_service
 from services.authorization import ensure_admin
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -92,7 +92,11 @@ def delete_user(
     return { "message": f"Usuário {user_id} - foi deletado com sucesso." }
 
 @router.put("/{user_id}/hotels", response_model=UserOut)
-def update_user_hotels(user_id: int, hotels_update: UserHotelsUpdate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+def update_user_hotels(
+    user_id: int,
+    hotels_update: UserHotelsUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)):
     
     user = update_user_hotels_service(user_id, hotels_update, current_user, db)
     
@@ -100,3 +104,19 @@ def update_user_hotels(user_id: int, hotels_update: UserHotelsUpdate, db: Sessio
     db.refresh(user)
     
     return user
+
+@router.put("/{user_id}/teams", response_model=UserOut)
+def update_user_teams(
+    target_user: int,
+    teams_update: UserTeamsUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(ensure_admin)
+):
+    user = update_user_teams_service(target_user, teams_update, db, current_user)
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+    

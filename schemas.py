@@ -98,6 +98,9 @@ class UserBasic(BaseModel):
 class UserHotelsUpdate(BaseModel):
     hotel_ids: List[int]
 
+class UserTeamsUpdate(BaseModel):
+    team_ids: List[int]
+
 
 class UserHotelOut(BaseModel):
     id: int
