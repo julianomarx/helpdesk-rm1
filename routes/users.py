@@ -63,6 +63,13 @@ def get_user(
                 "name": uh.hotel.name
             }
             for uh in user.hotels
+        ],
+        "teams": [
+            {
+                "id": ut.team.id,
+                "name": ut.team.name
+            }
+            for ut in user.teams
         ]
     }
 
@@ -91,7 +98,7 @@ def delete_user(
     
     return { "message": f"Usuário {user_id} - foi deletado com sucesso." }
 
-@router.put("/{user_id}/hotels", response_model=UserOut)
+@router.put("/{user_id}/hotels")
 def update_user_hotels(
     user_id: int,
     hotels_update: UserHotelsUpdate,
@@ -101,22 +108,20 @@ def update_user_hotels(
     user = update_user_hotels_service(user_id, hotels_update, current_user, db)
     
     db.commit()
-    db.refresh(user)
-    
-    return user
 
-@router.put("/{user_id}/teams", response_model=UserOut)
+    return {"message": "ok"}
+
+@router.put("/{user_id}/teams")
 def update_user_teams(
-    target_user: int,
+    user_id: int,
     teams_update: UserTeamsUpdate,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(ensure_admin)
 ):
-    user = update_user_teams_service(target_user, teams_update, db, current_user)
+    user = update_user_teams_service(user_id, teams_update, db, current_user)
 
     db.commit()
-    db.refresh(user)
 
-    return user
+    return {"message" : "ok"}
 
     

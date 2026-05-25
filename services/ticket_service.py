@@ -11,10 +11,41 @@ from models import ProgressEnum, StatusEnum, RoleEnum
 from services.ticket_logs import FIELD_TO_ACTION
 
 from schemas import TicketCreate, TicketUpdate
-from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel, ensure_user_can_access_ticket
+from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel, ensure_user_can_access_ticket, get_user_accessible_hotel_ids, get_user_accessible_team_ids
 from services.permissions import can_update_ticket_field
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+
+def get_ticket_service(
+    ticket_id: int,
+    current_user: UserModel,
+    db: Session
+):
+    ticket = (
+        db.query(TicketModel)
+        .options(
+            joinedload(TicketModel.hotel),
+            joinedload(TicketModel.creator),
+            joinedload(TicketModel.assignee),
+            joinedload(TicketModel.assigned_team),
+            joinedload(TicketModel.category),
+            joinedload(TicketModel.subcategory),
+            joinedload(TicketModel.comments)
+        )
+        .filter(TicketModel.id == ticket_id)
+        .first()
+    )
+
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail="Ticket not found"
+        )
+    
+    ensure_user_can_access_ticket(ticket, current_user, db)
+
+    return ticket
+
 
 def assign_agent_to_ticket(ticket: TicketModel, current_user: UserModel, target_user: UserModel, db: Session):
     old_agent = ticket.assigned_to
@@ -141,15 +172,32 @@ def list_tickets_service(
     current_user: UserModel,
     db: Session
 ):
-    query = db.query(TicketModel)
+    query = (
+        db.query(TicketModel)
+        .options(
+            joinedload(TicketModel.hotel),
+            joinedload(TicketModel.creator),
+            joinedload(TicketModel.assignee),
+            joinedload(TicketModel.assigned_team),
+            joinedload(TicketModel.category),
+            joinedload(TicketModel.subcategory),
+        )
+    )
     
     if current_user.role == RoleEnum.admin:
         pass
     
     elif current_user.role == RoleEnum.agent:
-        user_team_ids = {ut.team_id for ut in current_user.teams}
-        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
-        
+        user_team_ids = get_user_accessible_team_ids(
+            current_user.id,
+            db
+        )
+
+        user_hotel_ids = get_user_accessible_hotel_ids(
+            current_user.id,
+            db
+        )
+
         query = query.filter(
             TicketModel.assigned_team_id.in_(user_team_ids),
             TicketModel.hotel_id.in_(user_hotel_ids)
@@ -159,7 +207,11 @@ def list_tickets_service(
         RoleEnum.client_manager,
         RoleEnum.client_receptionist
     ]:
-        user_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
+        user_hotel_ids = get_user_accessible_hotel_ids(
+            current_user.id,
+            db
+        )
+
         query = query.filter(
             TicketModel.hotel_id.in_(user_hotel_ids)
         )
@@ -180,7 +232,7 @@ def ticket_edit_service(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     logs = []
     
@@ -299,7 +351,7 @@ def cancel_ticket_service(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     roles_allowed_to_cancel_tickets = [ 
         RoleEnum.client_manager, RoleEnum.client_receptionist, RoleEnum.admin 
@@ -339,7 +391,7 @@ def close_ticket_service(
     
     if current_user.role != RoleEnum.admin:
         
-        ensure_user_can_access_ticket(ticket, current_user) 
+        ensure_user_can_access_ticket(ticket, current_user, db) 
     
         if current_user.role == RoleEnum.agent:
             raise HTTPException(status_code=403, detail="Tickets can only be closed from the client side")
@@ -376,7 +428,7 @@ def reopen_ticket_service(
     if ticket.status != StatusEnum.closed.value:
         raise HTTPException(status_code=400, detail="Apenas tickets fechados podem ser reabertos")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     ticket.status = StatusEnum.open.value
     ticket.progress = ProgressEnum.waiting.value
@@ -410,7 +462,7 @@ def return_ticket_to_queue_service(
     if ticket.progress != ProgressEnum.awaiting_confirmation:
         raise HTTPException(status_code=401, detail="Apenas Tickets enviados para encerramento podem ser retornados à fila de atendimento")
 
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
 
     ticket.status = StatusEnum.open.value
     ticket.progress = ProgressEnum.waiting.value

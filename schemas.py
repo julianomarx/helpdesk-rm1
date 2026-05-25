@@ -57,6 +57,43 @@ class Hotel(HotelBase):
     class Config:
         from_attributes = True
 
+class HotelSimple(BaseModel):
+    id: int
+    code: str
+    name: str
+
+    class Config:
+        from_attributes = True
+
+# --------------------
+# TEAMS
+# --------------------
+class TeamBase(BaseModel):
+    name: str
+
+class Team(TeamBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class TeamSimple(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+        
+class SubcategoryUpdate(BaseModel):
+    subcategory_id: int
+
+class TeamSimple(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
 # --------------------
 # USUÁRIOS
 # --------------------
@@ -104,13 +141,14 @@ class UserTeamsUpdate(BaseModel):
 
 class UserHotelOut(BaseModel):
     id: int
-    hotel: Hotel
+    hotel: HotelSimple
 
     class Config:
         from_attributes = True
 
 class UserOut(User):
-    hotels: List[Hotel] = []
+    hotels: List[HotelSimple] = []
+    teams: List[TeamSimple] = []
     
     
 # --------------------
@@ -132,21 +170,6 @@ class Comment(CommentCreate):
 
 class CommentOut(Comment):
     author: UserBasic
-    
-# --------------------
-# TEAMS
-# --------------------
-class TeamBase(BaseModel):
-    name: str
-
-class Team(TeamBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-        
-class SubcategoryUpdate(BaseModel):
-    subcategory_id: int
         
         
 # --------------------
@@ -237,9 +260,6 @@ class TicketOut(Ticket):
 
 class TicketWithComments(TicketOut):  
     comments: List[CommentOut] = []
-    
-    
-    
     
     
 # --------------------

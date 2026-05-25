@@ -42,7 +42,7 @@ def list_attachments(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
 
     attachments = db.query(AttachmentModel).filter(
         AttachmentModel.ticket_id == ticket_id

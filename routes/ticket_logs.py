@@ -29,7 +29,7 @@ def list_ticket_logs(
             detail="Ticket não encontrado"
         )
         
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     logs = (
         db.query(TicketLogModel)

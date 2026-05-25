@@ -22,7 +22,7 @@ async def save_attachment_service(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     os.makedirs(f"{UPLOAD_DIR}/{ticket.id}", exist_ok=True)
     

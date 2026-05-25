@@ -13,7 +13,7 @@ from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
 from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
-from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service       
+from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service, get_ticket_service      
 
 from database import get_db 
 from auth_utils import get_current_user
@@ -42,11 +42,8 @@ def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depend
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
-    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ticket = get_ticket_service(ticket_id, current_user,db)
     
     return ticket
 
@@ -146,7 +143,7 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: U
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    ensure_user_can_access_ticket(ticket_id, current_user)
+    ensure_user_can_access_ticket(ticket_id, current_user, db)
     
     db.delete(ticket)  
     
@@ -166,7 +163,7 @@ def assign_agent(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket não localizado")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     target_user = db.query(UserModel).filter(UserModel.id == user_id).first()
     

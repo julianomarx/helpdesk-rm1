@@ -70,45 +70,79 @@ def update_user_hotels_service(
     current_user: UserModel,
     db: Session
 ):
-    
-    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    target_user = (
+        db.query(UserModel)
+        .filter(UserModel.id == target_user_id)
+        .first()
+    )
+
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    if current_user.role in [ RoleEnum.agent, RoleEnum.client_receptionist ]:
-        raise HTTPException(status_code=403, detail="You dont have permission to update user hotels")
-    
-    hotel_ids = hotels_update.hotel_ids
+
+    if current_user.role in [RoleEnum.agent, RoleEnum.client_receptionist]:
+        raise HTTPException(
+            status_code=403,
+            detail="You dont have permission to update user hotels"
+        )
+
+    hotel_ids = set(hotels_update.hotel_ids)
+
     ensure_hotels_exist(hotel_ids, db)
-    
-    #Ver se o current_user tem permissão pra atribuir algum hotel ao target_user via role 
+
+    # -----------------------------
+    # REGRAS DE PERMISSÃO
+    # -----------------------------
     if current_user.role == RoleEnum.client_manager:
-        
+
         if target_user.role != RoleEnum.client_receptionist:
-            raise HTTPException(status_code=403, detail="Manager can only manage hotels access of receptionists")
-        
-        manager_hotel_ids = {
-            uh.hotel_id for uh in current_user.hotels
-        }
-        
-        invalid_assignments = set(hotel_ids) - manager_hotel_ids
-        
+            raise HTTPException(
+                status_code=403,
+                detail="Manager can only manage hotels access of receptionists"
+            )
+
+        manager_hotel_ids = {uh.hotel_id for uh in current_user.hotels}
+        invalid_assignments = hotel_ids - manager_hotel_ids
+
         if invalid_assignments:
-            raise HTTPException(status_code=403, detail=f"You cant assign hotels you dont manage: {list(invalid_assignments)}")
-        
-    db.query(UserHotelModel).filter(UserHotelModel.user_id == target_user.id).delete()
-    
-    db.bulk_insert_mappings(
-        UserHotelModel,
-        [
-            {
-                "user_id": target_user.id,
-                "hotel_id": hotel_id
-            }
-            for hotel_id in hotel_ids
-        ]
-    )  
-    return target_user
+            raise HTTPException(
+                status_code=403,
+                detail=f"You cant assign hotels you dont manage: {list(invalid_assignments)}"
+            )
+
+
+    current_hotel_ids = {
+        hotel_id
+        for (hotel_id,) in (
+            db.query(UserHotelModel.hotel_id)
+            .filter(UserHotelModel.user_id == target_user.id)
+            .all()
+        )
+    }
+
+    to_add_ids = hotel_ids - current_hotel_ids
+    to_remove_ids = current_hotel_ids - hotel_ids
+
+    # remove só o que saiu
+    if to_remove_ids:
+        db.query(UserHotelModel).filter(
+            UserHotelModel.user_id == target_user.id,
+            UserHotelModel.hotel_id.in_(to_remove_ids)
+        ).delete(synchronize_session=False)
+
+    # adiciona só o que entrou
+    if to_add_ids:
+        db.bulk_insert_mappings(
+            UserHotelModel,
+            [
+                {
+                    "user_id": target_user.id,
+                    "hotel_id": hotel_id
+                }
+                for hotel_id in to_add_ids
+            ]
+        )
+
+    db.flush()
 
 def update_user_teams_service(
     target_user_id: int, 
@@ -116,7 +150,11 @@ def update_user_teams_service(
     db: Session,
     current_user: UserModel
 ):
-    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    target_user = (
+        db.query(UserModel)
+        .filter(UserModel.id == target_user_id)
+        .first()
+    )
 
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -133,7 +171,7 @@ def update_user_teams_service(
             team_id=team_id
         ))
 
-    return target_user
+    db.flush()
 
     
 def list_users_service(
@@ -146,7 +184,7 @@ def list_users_service(
     query = db.query(UserModel)
 
     # -------------------
-    # Escopo por permissão
+    # Escopo por permissão  
     # -------------------
 
     if current_user.role == RoleEnum.admin:
@@ -228,7 +266,10 @@ def get_user_service(
         db.query(UserModel)
         .options(
             selectinload(UserModel.hotels)
-            .selectinload(UserHotelModel.hotel)
+            .selectinload(UserHotelModel.hotel),
+
+            selectinload(UserModel.teams)
+            .selectinload(UserTeamModel.team)
         )
         .filter(UserModel.id == target_user_id)
         .first()
@@ -265,7 +306,18 @@ def get_user_service(
         if target_user.role not in accessible_roles:
             raise HTTPException(status_code=403, detail="User not found")
         
-        return target_user
+        return (
+            db.query(UserModel)
+            .options(
+                selectinload(UserModel.hotels)
+                .selectinload(UserHotelModel.hotel),
+
+                selectinload(UserModel.teams)
+                .selectinload(UserTeamModel.team)
+            )
+            .filter(UserModel.id == target_user.id)
+            .first()
+        )
     
     raise HTTPException(status_code=403, detail="User not found")
         
@@ -275,7 +327,18 @@ def update_user_service(
     user_update: UserUpdate,
     db: Session
 ):
-    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    target_user = (
+        db.query(UserModel)
+        .options(
+            selectinload(UserModel.hotels)
+            .selectinload(UserHotelModel.hotel),
+
+            selectinload(UserModel.teams)
+            .selectinload(UserTeamModel.team)
+        )
+        .filter(UserModel.id == target_user_id)
+        .first()
+    )
     
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")

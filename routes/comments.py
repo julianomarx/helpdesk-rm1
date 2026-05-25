@@ -33,7 +33,7 @@ def create_comment(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
 
     db_comment = CommentModel(
         ticket_id=comment.ticket_id,
@@ -61,7 +61,7 @@ def update_comment(
     
     ticket = db.query(TicketModel).filter(TicketModel.id == db_comment.ticket_id).first()
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     # regra: só admin ou dono do comentário pode editar
     if current_user.role != RoleEnum.admin and db_comment.user_id != current_user.id:
@@ -104,7 +104,7 @@ def delete_comment(
     
     ticket = db.query(TicketModel).filter(TicketModel.id == db_comment.ticket_id).first()
     
-    ensure_user_can_access_ticket(ticket, current_user)
+    ensure_user_can_access_ticket(ticket, current_user, db)
     
     if current_user.role != RoleEnum.admin and db_comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You have no permission to delete this comment")
