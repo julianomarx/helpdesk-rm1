@@ -68,11 +68,11 @@ def ensure_user_can_access_ticket(
                 detail="You don't have access to this ticket"
             )
         
-def ensure_user_can_access_hotel(user: UserModel, hotel: HotelModel) -> None:
+def ensure_user_can_access_hotel(user: UserModel, hotel: HotelModel, db: Session) -> None:
     if user.role == RoleEnum.admin:
         return
     
-    accessible_hotel_ids = get_user_accessible_hotel_ids(user)
+    accessible_hotel_ids = get_user_accessible_hotel_ids(user.id, db)
     
     if hotel.id not in accessible_hotel_ids:
         raise HTTPException(status_code=403, detail="You dont have access to this hotel")

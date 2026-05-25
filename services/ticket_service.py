@@ -118,7 +118,7 @@ def create_ticket_service(
     if not hotel:
         raise HTTPException(status_code=404, detail="Hotel not found")
     
-    ensure_user_can_access_hotel(current_user, hotel)
+    ensure_user_can_access_hotel(current_user, hotel, db)
         
     category = db.query(CategoryModel).filter(CategoryModel.id == ticket_to_create.category_id).first()
     

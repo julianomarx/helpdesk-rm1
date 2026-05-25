@@ -192,7 +192,7 @@ def list_users_service(
 
     elif current_user.role == RoleEnum.agent:
 
-        accessible_hotels = get_user_accessible_hotel_ids(current_user)
+        accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
 
         query = (
             query.join(UserHotelModel)
@@ -212,7 +212,7 @@ def list_users_service(
 
     elif current_user.role == RoleEnum.client_manager:
 
-        accessible_hotels = get_user_accessible_hotel_ids(current_user)
+        accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
 
         query = (
             query.join(UserHotelModel)
@@ -284,7 +284,7 @@ def get_user_service(
     if current_user.role == RoleEnum.client_receptionist:
         raise HTTPException(status_code=403, detail="User not found")
     
-    accessible_hotels = get_user_accessible_hotel_ids(current_user)
+    accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
     
     if not any(
         uh.hotel_id in accessible_hotels
@@ -348,7 +348,7 @@ def update_user_service(
     
     elif current_user.role == RoleEnum.client_manager:
         
-        acessible_hotels = get_user_accessible_hotel_ids(current_user)
+        acessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
         
         if not any(
             uh.hotel_id in acessible_hotels
