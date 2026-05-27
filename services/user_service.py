@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from models import User as UserModel, UserHotel as UserHotelModel, UserTeam as UserTeamModel
-from schemas import UserHotelsUpdate, UserCreateWithHotels, UserUpdate, UserTeamsUpdate
+from schemas import UserHotelsUpdate, UserCreate, UserUpdate, UserTeamsUpdate
 from models import RoleEnum
 
 from services.validations import ensure_hotels_exist, ensure_teams_exist
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def create_user_service(
-    new_user: UserCreateWithHotels, 
+    new_user: UserCreate, 
     db: Session,
     current_user: UserModel
     ):
@@ -56,6 +56,22 @@ def create_user_service(
                     "hotel_id": hid
                 }
                 for hid in hotel_ids
+            ]
+        )
+
+    if new_user.team_ids:
+        team_ids = list(set(new_user.team_ids))
+
+        ensure_teams_exist(team_ids, db)
+
+        db.bulk_insert_mappings(
+            UserTeamModel,
+            [
+                {
+                    "user_id": created_user.id,
+                    "team_id": tid
+                }
+                for tid in team_ids
             ]
         )
     

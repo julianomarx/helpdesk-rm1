@@ -103,13 +103,9 @@ class UserCreate(BaseModel):
     password: str
     role: RoleEnum
     
-class UserCreateWithHotels(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
-    role: RoleEnum
     hotel_ids: Optional[List[int]] = []
-
+    team_ids: Optional[List[int]] = []
+    
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None

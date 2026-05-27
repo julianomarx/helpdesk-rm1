@@ -4,7 +4,7 @@ from typing import List
 from passlib.context import CryptContext
 
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import User, UserUpdate, UserCreateWithHotels, UserHotelsUpdate, UserOut, UserTeamsUpdate
+from schemas import User, UserUpdate, UserCreate, UserHotelsUpdate, UserOut, UserTeamsUpdate
 from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
@@ -21,7 +21,7 @@ router = APIRouter(
 
 @router.post("/", response_model=User)
 def create_user(
-    user: UserCreateWithHotels, 
+    user: UserCreate, 
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
