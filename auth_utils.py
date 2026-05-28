@@ -96,6 +96,29 @@ def create_access_token(user: UserModel, db: Session) -> str:
     user_hotels = [
         {"id": h.id, "code": h.code, "name": h.name} for h in user_hotels_query
     ]
+
+    teams = [
+        {
+            "name": "Suporte TI",
+            "id": 1
+        },
+        {
+            "name": "Suporte PMS",
+            "id": 2
+        },
+        {
+            "name": "Suporte Fiscal",
+            "id": 3
+        },
+        {
+            "name": "Suporte PDV",
+            "id": 4
+        },
+        {
+            "name": "Usuários nominais",
+            "id": 5
+        }
+    ]
     
     categories = [
         {"id": 1, "name": "TI"},
@@ -172,6 +195,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
         "iat": now,
         "exp": expire,
         "hotels": user_hotels,
+        "teams": teams,
         "categories": categories,
         "subcategories": subcategories,
         "menus": role_menus.get(user.role, [])
