@@ -18,6 +18,7 @@ from database import get_db
 from auth_utils import get_current_user
 
 from services.authorization import ensure_user_can_access_ticket
+from services.comment_service import create_comment_service
 
 router = APIRouter(
     prefix="/comments",
@@ -26,25 +27,13 @@ router = APIRouter(
 
 @router.post("/", response_model=CommentSchema)
 def create_comment(
-    comment: CommentCreate, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+    comment: CommentCreate, 
+    db: Session = Depends(get_db), 
+    current_user: UserModel = Depends(get_current_user)
+):
     
-    ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
-    
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    
-    ensure_user_can_access_ticket(ticket, current_user, db)
-
-    db_comment = CommentModel(
-        ticket_id=comment.ticket_id,
-        user_id=current_user.id,
-        comment=comment.comment
-    )
-    
-    db.add(db_comment)
-    db.commit()
-    db.refresh(db_comment)
-    
+    db_comment = create_comment_service(current_user, comment, db)
+     
     return db_comment
 
 @router.put("/{comment_id}", response_model=CommentSchema)
