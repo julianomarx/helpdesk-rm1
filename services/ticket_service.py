@@ -1,5 +1,7 @@
 from fastapi import HTTPException
 
+from math import ceil
+
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
 from models import Team as TeamModel
@@ -14,7 +16,8 @@ from schemas import TicketCreate, TicketUpdate
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel, ensure_user_can_access_ticket, get_user_accessible_hotel_ids, get_user_accessible_team_ids
 from services.permissions import can_update_ticket_field
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import or_, cast, String
 
 def get_ticket_service(
     ticket_id: int,
@@ -170,56 +173,213 @@ def create_ticket_service(
 
 def list_tickets_service(
     current_user: UserModel,
-    db: Session
+    db: Session,
+
+    *,
+    page: int = 1,
+    page_size: int = 50,
+
+    status: str = "open",
+
+    search: str | None = None,
+    progress: str | None = None,
+    priority: str | None = None,
+
+    team_id: int | None = None,
+
+    category_id: int | None = None,
+    subcategory_id: int | None = None,
+
+    hotel_id: int | None = None
 ):
+
     query = (
         db.query(TicketModel)
         .options(
-            joinedload(TicketModel.hotel),
-            joinedload(TicketModel.creator),
-            joinedload(TicketModel.assignee),
-            joinedload(TicketModel.assigned_team),
-            joinedload(TicketModel.category),
-            joinedload(TicketModel.subcategory),
+
+            selectinload(
+                TicketModel.hotel
+            ),
+
+            selectinload(
+                TicketModel.creator
+            ),
+
+            selectinload(
+                TicketModel.assignee
+            ),
+
+            selectinload(
+                TicketModel.assigned_team
+            ),
+
+            selectinload(
+                TicketModel.category
+            ),
+
+            selectinload(
+                TicketModel.subcategory
+            )
         )
     )
-    
+
     if current_user.role == RoleEnum.admin:
+
         pass
-    
+
     elif current_user.role == RoleEnum.agent:
-        user_team_ids = get_user_accessible_team_ids(
-            current_user.id,
-            db
+
+        user_team_ids = (
+            get_user_accessible_team_ids(
+                current_user.id,
+                db
+            )
         )
 
-        user_hotel_ids = get_user_accessible_hotel_ids(
-            current_user.id,
-            db
+        user_hotel_ids = (
+            get_user_accessible_hotel_ids(
+                current_user.id,
+                db
+            )
         )
 
         query = query.filter(
-            TicketModel.assigned_team_id.in_(user_team_ids),
-            TicketModel.hotel_id.in_(user_hotel_ids)
+            TicketModel.assigned_team_id.in_(
+                user_team_ids
+            ),
+            TicketModel.hotel_id.in_(
+                user_hotel_ids
+            )
         )
-        
-    elif current_user.role in [
+
+    elif current_user.role in (
         RoleEnum.client_manager,
         RoleEnum.client_receptionist
-    ]:
-        user_hotel_ids = get_user_accessible_hotel_ids(
-            current_user.id,
-            db
+    ):
+
+        user_hotel_ids = (
+            get_user_accessible_hotel_ids(
+                current_user.id,
+                db
+            )
         )
 
         query = query.filter(
-            TicketModel.hotel_id.in_(user_hotel_ids)
+            TicketModel.hotel_id.in_(
+                user_hotel_ids
+            )
         )
-        
+
     else:
-        query = query.filter(False)  
-    
-    return query.all()
+
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "pages": 0
+        }
+
+    if status != "all":
+
+        query = query.filter(
+            TicketModel.status == status
+        )
+
+    if search:
+
+        search = search.strip()
+
+        query = query.filter(
+
+            or_(
+
+                TicketModel.title.ilike(
+                    f"%{search}%"
+                ),
+
+                TicketModel.description.ilike(
+                    f"%{search}%"
+                ),
+
+                cast(
+                    TicketModel.id,
+                    String
+                ).ilike(
+                    f"%{search}%"
+                )
+            )
+        )
+
+    if progress:
+
+        query = query.filter(
+            TicketModel.progress == progress
+        )
+
+    if priority:
+
+        query = query.filter(
+            TicketModel.priority == priority
+        )
+
+    if team_id:
+
+        query = query.filter(
+            TicketModel.assigned_team_id
+            == team_id
+        )
+
+    if hotel_id:
+
+        query = query.filter(
+            TicketModel.hotel_id
+            == hotel_id
+        )
+
+    if category_id:
+
+        query = query.filter(
+            TicketModel.category_id
+            == category_id
+        )
+
+    if subcategory_id:
+
+        query = query.filter(
+            TicketModel.subcategory_id
+            == subcategory_id
+        )
+
+    total = query.count()
+
+    query = query.order_by(
+        TicketModel.created_at.desc()
+    )
+
+    #Paginação
+    query = query.offset(
+        (page - 1) * page_size
+    ).limit(
+        page_size
+    )
+
+    tickets = query.all()
+
+    return {
+
+        "items": tickets,
+
+        "total": total,
+
+        "page": page,
+
+        "page_size": page_size,
+
+        "pages": ceil(
+            total / page_size
+        ) if total else 0
+    }
 
 def ticket_edit_service(    
     ticket_id: int, 

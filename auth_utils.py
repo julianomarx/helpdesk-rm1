@@ -189,6 +189,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
 
     to_encode = {
         "sub": str(user.id),
+        "name": user.name,
         "role": user.role,
         "email": user.email,
         "iat": now,

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel, Category as CategoryModel
 from models import LogActionEnum
-from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments, SubcategoryUpdate
+from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments, SubcategoryUpdate, TicketListOut
 from schemas import StatusEnum, ProgressEnum
 
 from models import RoleEnum
@@ -35,10 +35,78 @@ def create_ticket(
     
     return db_ticket
 
-@router.get("/", response_model=List[TicketOut])
-def list_tickets(db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
+@router.get("/", response_model=TicketListOut)
+def list_tickets(
+    page: int = Query(
+        default=1,
+        ge=1
+    ),
 
-   return list_tickets_service(current_user, db)
+    page_size: int = Query(
+        default=50,
+        ge=1,
+        le=100
+    ),
+
+    status: str = Query(
+        default="open"
+    ),
+
+    search: str | None = Query(
+        default=None
+    ),
+
+    progress: str | None = Query(
+        default=None
+    ),
+
+    priority: str | None = Query(
+        default=None
+    ),
+
+    team_id: int | None = Query(
+        default=None
+    ),
+
+    category_id: int | None = Query(
+        default=None
+    ),
+
+    subcategory_id: int | None = Query(
+        default=None
+    ),
+
+    hotel_id: int | None = Query(
+        default=None
+    ),
+
+    db: Session = Depends(get_db),
+
+    current_user: UserModel = Depends(
+        get_current_user
+    )
+):
+
+    return list_tickets_service(
+        current_user=current_user,
+        db=db,
+
+        page=page,
+        page_size=page_size,
+
+        status=status,
+
+        search=search,
+        progress=progress,
+        priority=priority,
+
+        team_id=team_id,
+
+        category_id=category_id,
+        subcategory_id=subcategory_id,
+
+        hotel_id=hotel_id
+    )
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):

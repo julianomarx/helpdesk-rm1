@@ -253,6 +253,17 @@ class TicketOut(Ticket):
     category: Optional[Category] = None
     subcategory: Optional[SubCategory] = None
 
+class TicketListOut(BaseModel):
+
+    items: list[TicketOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+    class Config:
+        from_attributes = True
+
 
 class TicketWithComments(TicketOut):  
     comments: List[CommentOut] = []
