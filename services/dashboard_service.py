@@ -1,6 +1,6 @@
 from models import Ticket as TicketModel, User as UserModel
 from models import StatusEnum, ProgressEnum, PriorityEnum
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy.sql import func
 
@@ -9,8 +9,8 @@ def dashboard_overview_service(
     current_user,
     db
 ):
-    today = datetime.now(UTC).date()
-    cutoff = datetime.now(UTC) - timedelta(hours=48)
+    today = datetime.now(timezone.utc).date()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
     
     open_tickets = (
         db.query(TicketModel)
