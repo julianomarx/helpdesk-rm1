@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
+from datetime import datetime, UTC
 
 from models import Ticket as TicketModel, User as UserModel, TicketComment as CommentModel
 from schemas import CommentCreate, ProgressEnum, StatusEnum, RoleEnum
@@ -50,6 +51,9 @@ def create_comment_service(
         ticket.progress = ProgressEnum.in_progress
 
     db.add(db_comment)
+
+    ticket.updated_at = datetime.now(UTC)
+
     db.commit()
     db.refresh(db_comment)
 

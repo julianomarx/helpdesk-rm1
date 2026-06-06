@@ -317,3 +317,19 @@ class AttachmentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --------------------
+# Dashboard MOdel
+# --------------------
+
+class DashboardOverview(BaseModel):
+
+    created_today_tickets: int
+    open_tickets: int
+    in_progress_tickets: int
+    feedback_tickets: int
+    awaiting_confirmation_tickets: int
+    unassigned_tickets: int
+    stale_48h_tickets: int
+    high_priority_tickets: int
+    
