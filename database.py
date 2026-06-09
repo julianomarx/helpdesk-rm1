@@ -15,8 +15,18 @@ DATABASE_URL = (
     f"@{os.getenv('DB_HOST')}:3306/{os.getenv('DB_NAME')}"
 )
 
+
 # Cria engine e sessão
-engine = create_engine(DATABASE_URL, echo=True)
+#engine = create_engine(DATABASE_URL, echo=True)
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base para modelos

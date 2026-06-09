@@ -17,10 +17,11 @@ router = APIRouter(
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # Busca o usuário no banco
+    
+    print("Tentando autenticar:", form_data.username)
+
     user = db.query(UserModel).filter(UserModel.email == form_data.username).first()
 
-    # Verifica se o usuário existe
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -35,7 +36,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Cria o token com expiração fixa (do .env)
     access_token = create_access_token(user, db)
 
     return {
