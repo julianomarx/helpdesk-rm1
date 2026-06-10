@@ -1,10 +1,12 @@
+from math import ceil
 from fastapi import Depends, HTTPException
-from models import User as UserModel, UserHotel as UserHotelModel, UserTeam as UserTeamModel
+from models import User as UserModel, UserHotel as UserHotelModel, UserTeam as UserTeamModel, Hotel as HotelModel
 from schemas import UserHotelsUpdate, UserCreate, UserUpdate, UserTeamsUpdate
 from models import RoleEnum
 
 from services.validations import ensure_hotels_exist, ensure_teams_exist
 
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 
@@ -193,86 +195,139 @@ def update_user_teams_service(
 def list_users_service(
     db: Session,
     current_user: UserModel,
+
+    *,
+    page: int = 1,
+    page_size: int = 5,
+
     hotel_id: int | None = None,
     role: RoleEnum | None = None,
     search: str | None = None
 ):
-    query = db.query(UserModel)
 
-    # -------------------
-    # Escopo por permissão  
-    # -------------------
+    query = (
+        db.query(UserModel)
+        .options(
+
+            selectinload(
+                UserModel.hotels
+            ),
+
+            selectinload(
+                UserModel.teams
+            )
+        )
+    )
 
     if current_user.role == RoleEnum.admin:
+
         pass
 
-    elif current_user.role == RoleEnum.agent:
+    elif current_user.role in (
+        RoleEnum.agent,
+        RoleEnum.client_manager
+    ):
 
-        accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
-
-        query = (
-            query.join(UserHotelModel)
-            .filter(
-                UserHotelModel.hotel_id.in_(
-                    accessible_hotels
-                )
+        accessible_hotels = (
+            get_user_accessible_hotel_ids(
+                current_user.id,
+                db
             )
         )
 
         query = query.filter(
-            UserModel.role.in_([
-                RoleEnum.client_manager,
-                RoleEnum.client_receptionist
-            ])
-        )
 
-    elif current_user.role == RoleEnum.client_manager:
-
-        accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
-
-        query = (
-            query.join(UserHotelModel)
-            .filter(
-                UserHotelModel.hotel_id.in_(
+            UserModel.hotels.any(
+                HotelModel.id.in_(
                     accessible_hotels
                 )
             )
+
         )
 
         query = query.filter(
-            UserModel.role.in_([
-                RoleEnum.client_manager,
-                RoleEnum.client_receptionist
-            ])
+
+            UserModel.role.in_(
+                [
+                    RoleEnum.client_manager,
+                    RoleEnum.client_receptionist
+                ]
+            )
+
         )
 
     else:
+
         raise HTTPException(
             status_code=403,
             detail="Not allowed"
         )
 
-    # -------------------
-    # Filtros opcionais
-    # -------------------
-
     if hotel_id:
-        query = query.join(UserHotelModel).filter(
-            UserHotelModel.hotel_id == hotel_id
+
+        query = query.filter(
+
+            UserModel.hotels.any(
+                HotelModel.id == hotel_id
+            )
+
         )
 
     if role:
+
         query = query.filter(
             UserModel.role == role
         )
 
     if search:
+
+        search = search.strip()
+
         query = query.filter(
-            UserModel.name.ilike(f"%{search}%")
+
+            or_(
+
+                UserModel.name.ilike(
+                    f"%{search}%"
+                ),
+
+                UserModel.email.ilike(
+                    f"%{search}%"
+                )
+
+            )
+
         )
 
-    return query.distinct().all()
-    
+    total = query.count()
+
+    query = query.order_by(
+        UserModel.name.asc()
+    )
+
+    query = query.offset(
+        (page - 1) * page_size
+    ).limit(
+        page_size
+    )
+
+    users = query.all()
+
+    return {
+
+        "items": users,
+
+        "total": total,
+
+        "page": page,
+
+        "page_size": page_size,
+
+        "pages": ceil(
+            total / page_size
+        ) if total else 0
+    }
+
 def get_user_service(
     current_user: UserModel,
     target_user_id: int,

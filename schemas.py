@@ -145,7 +145,19 @@ class UserHotelOut(BaseModel):
 class UserOut(User):
     hotels: List[HotelSimple] = []
     teams: List[TeamSimple] = []
-    
+
+
+class UserListOut(BaseModel):
+
+    items: list[User]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+    class Config:
+        from_attributes = True
+
     
 # --------------------
 # COMENTÁRIOS

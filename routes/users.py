@@ -4,7 +4,7 @@ from typing import List
 from passlib.context import CryptContext
 
 from models import User as UserModel, UserHotel as UserHotelModel
-from schemas import User, UserUpdate, UserCreate, UserHotelsUpdate, UserOut, UserTeamsUpdate
+from schemas import User, UserUpdate, UserCreate, UserHotelsUpdate, UserOut, UserTeamsUpdate, UserListOut
 from models import RoleEnum
 from database import get_db
 from auth_utils import get_current_user
@@ -32,15 +32,35 @@ def create_user(
         
     return created_user
     
-@router.get("/", response_model=List[User])
+@router.get("/", response_model=UserListOut)
 def list_users(
+
+    page: int = Query(
+        default=1,
+        ge=1
+    ),
+
+    page_size: int = Query(
+        default=5,
+        ge=1,
+        le=100
+    ),
+
     hotel_id: int | None = Query(default=None),
     role: RoleEnum | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
-    return list_users_service(db,current_user, hotel_id, role, search)
+    return list_users_service(
+        page=page,
+        page_size=page_size,
+        hotel_id=hotel_id, 
+        role=role, 
+        search=search,
+        db=db,
+        current_user=current_user
+    )
     
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(
