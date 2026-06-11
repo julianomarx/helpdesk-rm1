@@ -15,6 +15,13 @@ from services.authorization import ensure_admin
 
 router = APIRouter(prefix="/hotels", tags=["hotels"])
 
+@router.get("/", response_model=list[Hotel])
+def list_hotels(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(ensure_admin)
+):
+    return db.query(HotelModel).order_by(HotelModel.name).all()
+
 @router.get("/{hotel_id}", response_model=HotelOut)
 def get_hotel(
     hotel_id: int,

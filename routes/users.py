@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import os
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 from passlib.context import CryptContext
@@ -130,6 +133,67 @@ def update_user_hotels(
     db.commit()
 
     return {"message": "ok"}
+
+AVATAR_DIR = "uploads/avatars"
+ALLOWED_AVATAR_MIMES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+ALLOWED_AVATAR_EXTS  = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_AVATAR_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/me/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    content = await file.read()
+
+    if len(content) == 0:
+        raise HTTPException(400, "Arquivo vazio não permitido")
+    if len(content) > MAX_AVATAR_SIZE:
+        raise HTTPException(413, f"Imagem muito grande. Máximo: {MAX_AVATAR_SIZE // 1024 // 1024} MB")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_AVATAR_EXTS:
+        raise HTTPException(400, f"Formato não suportado. Use: {', '.join(sorted(ALLOWED_AVATAR_EXTS))}")
+
+    mime = (file.content_type or "").lower().split(";")[0].strip()
+    if mime not in ALLOWED_AVATAR_MIMES:
+        raise HTTPException(400, "Tipo de arquivo não é uma imagem válida")
+
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+
+    # Apaga avatar antigo se existir
+    if current_user.avatar_url:
+        old_filename = current_user.avatar_url.split("/")[-1]
+        old_path = os.path.join(AVATAR_DIR, old_filename)
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(AVATAR_DIR, filename)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    avatar_url = f"/api/users/avatar/{filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+
+    return {"avatar_url": avatar_url}
+
+
+@router.get("/avatar/{filename}")
+def serve_avatar(filename: str):
+    if "/" in filename or ".." in filename or not filename:
+        raise HTTPException(403)
+    path = os.path.abspath(os.path.join(AVATAR_DIR, filename))
+    root  = os.path.abspath(AVATAR_DIR)
+    if not path.startswith(root + os.sep):
+        raise HTTPException(403)
+    if not os.path.isfile(path):
+        raise HTTPException(404)
+    return FileResponse(path)
+
 
 @router.put("/{user_id}/teams")
 def update_user_teams(
