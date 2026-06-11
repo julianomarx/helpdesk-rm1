@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
-from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla
+from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla, reports
 
 from config import validate_env
 
@@ -73,6 +73,7 @@ app.include_router(ticket_logs.router)
 app.include_router(attachments.router)
 app.include_router(dashboard.router)
 app.include_router(sla.router)
+app.include_router(reports.router)
 
 # Serve arquivos estáticos (ex: uploads)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

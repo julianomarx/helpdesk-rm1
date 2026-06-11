@@ -169,6 +169,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Gerenciar usuários", "page": "manage-users"},
             {"label": "Gerenciar hotéis", "page": "manage-hotels"},
             {"label": "Categorias & SLA", "page": "manage-categories"},
+            {"label": "Relatório de Atividades", "page": "activity-report"},
         ],
         "agent": [
             {"label": "Chamados", "page": "tickets"},
