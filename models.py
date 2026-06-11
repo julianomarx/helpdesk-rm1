@@ -1,6 +1,6 @@
 from enum import Enum as PyEnum
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import Column, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -87,6 +87,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(SAEnum(RoleEnum, native_enum=False), nullable=False)
+    avatar_url = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -134,6 +135,7 @@ class Ticket(Base):
     category = relationship("Category", back_populates="tickets")
     subcategory = relationship("SubCategory", back_populates="tickets")
     attachments = relationship("Attachment", back_populates="ticket", cascade="all, delete-orphan")
+    sla = relationship("TicketSLA", back_populates="ticket", uselist=False, cascade="all, delete-orphan")
     
 class Category(Base):
     __tablename__ = "categories"
@@ -148,13 +150,15 @@ class Category(Base):
 
 class SubCategory(Base):
     __tablename__ = "subcategories"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(150), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    
+    sla_policy_id = Column(Integer, ForeignKey("sla_policies.id"), nullable=True)
+
     tickets = relationship("Ticket", back_populates="subcategory")
     category = relationship("Category", back_populates="subcategories")
+    sla_policy = relationship("SLAPolicy", back_populates="subcategories")
    
 
 class TicketComment(Base):
@@ -225,6 +229,54 @@ class UserTeam(Base):
     user = relationship("User", back_populates="teams")
     team = relationship("Team", back_populates="users")
     
+class SLAPolicy(Base):
+    __tablename__ = "sla_policies"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    first_response_hours = Column(Integer, nullable=False)
+    resolution_hours = Column(Integer, nullable=False)
+    priority = Column(SAEnum(PriorityEnum, native_enum=False), nullable=False, default=PriorityEnum.medium)
+
+    subcategories = relationship("SubCategory", back_populates="sla_policy")
+    ticket_sla_records = relationship("TicketSLA", back_populates="policy")
+
+
+class TicketSLA(Base):
+    __tablename__ = "ticket_sla"
+
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, unique=True)
+    policy_id = Column(Integer, ForeignKey("sla_policies.id"), nullable=True)
+
+    # Snapshots da política no momento da aplicação
+    first_response_hours = Column(Integer, nullable=False)
+    resolution_hours = Column(Integer, nullable=False)
+
+    # Ponto de partida do relógio SLA (= ticket.created_at)
+    started_at = Column(DateTime(timezone=True), nullable=False)
+
+    # Deadlines calculados
+    response_deadline = Column(DateTime(timezone=True), nullable=False)
+    resolution_deadline = Column(DateTime(timezone=True), nullable=False)
+
+    # Quando foram cumpridos (None = não cumprido)
+    response_met_at = Column(DateTime(timezone=True), nullable=True)
+    resolution_met_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Controle de pausa (progress = feedback)
+    paused_at = Column(DateTime(timezone=True), nullable=True)
+    total_paused_seconds = Column(Integer, default=0, nullable=False)
+
+    # Flags de violação
+    response_breached = Column(Boolean, default=False, nullable=False)
+    resolution_breached = Column(Boolean, default=False, nullable=False)
+
+    ticket = relationship("Ticket", back_populates="sla")
+    policy = relationship("SLAPolicy", back_populates="ticket_sla_records")
+
+
 class Attachment(Base):
     __tablename__ = "attachments"
     

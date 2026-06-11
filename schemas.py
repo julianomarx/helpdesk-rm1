@@ -117,6 +117,7 @@ class User(BaseModel):
     name: str
     email: EmailStr
     role: RoleEnum
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -203,6 +204,54 @@ class Category(CategoryBase):
         
         
 # --------------------
+# SLA POLICIES
+# --------------------
+
+class SLAPolicyCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    first_response_hours: int = Field(gt=0)
+    resolution_hours: int = Field(gt=0)
+    priority: PriorityEnum = PriorityEnum.medium
+
+class SLAPolicyUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    first_response_hours: Optional[int] = Field(default=None, gt=0)
+    resolution_hours: Optional[int] = Field(default=None, gt=0)
+    priority: Optional[PriorityEnum] = None
+
+class SLAPolicyOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    first_response_hours: int
+    resolution_hours: int
+    priority: PriorityEnum
+
+    class Config:
+        from_attributes = True
+
+class TicketSLAOut(BaseModel):
+    id: int
+    policy_id: Optional[int] = None
+    policy: Optional[SLAPolicyOut] = None
+    first_response_hours: int
+    resolution_hours: int
+    started_at: datetime
+    response_deadline: datetime
+    resolution_deadline: datetime
+    response_met_at: Optional[datetime] = None
+    resolution_met_at: Optional[datetime] = None
+    paused_at: Optional[datetime] = None
+    total_paused_seconds: int
+    response_breached: bool
+    resolution_breached: bool
+
+    class Config:
+        from_attributes = True
+
+# --------------------
 # Sub-categories
 # --------------------
 
@@ -216,12 +265,17 @@ class SubCategoryCreate(SubCategoryBase):
 class SubCategoryUpdate(BaseModel):
     name: Optional[str] = None
     category_id: Optional[int] = None
+    sla_policy_id: Optional[int] = None
 
 class SubCategory(SubCategoryBase):
     id: int
+    sla_policy_id: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+class SubCategoryWithSLA(SubCategory):
+    sla_policy: Optional[SLAPolicyOut] = None
 
 class CategoryWithSubcategories(Category):
     subcategories: List[SubCategory] = []
@@ -264,6 +318,7 @@ class TicketOut(Ticket):
     assigned_team: Optional[Team] = None
     category: Optional[Category] = None
     subcategory: Optional[SubCategory] = None
+    sla: Optional[TicketSLAOut] = None
 
 class TicketListOut(BaseModel):
 
@@ -344,4 +399,115 @@ class DashboardOverview(BaseModel):
     unassigned_tickets: int
     stale_48h_tickets: int
     high_priority_tickets: int
-    
+
+
+class DashboardTicketItem(BaseModel):
+    id: int
+    title: str
+    hotel_name: str
+    category_name: Optional[str] = None
+    priority: str
+    assignee_name: Optional[str] = None
+    team_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    progress: str
+
+
+class DashboardOperational(BaseModel):
+    stale_tickets: List[DashboardTicketItem]
+    unassigned_tickets: List[DashboardTicketItem]
+    critical_tickets: List[DashboardTicketItem]
+    awaiting_confirmation_tickets: List[DashboardTicketItem]
+    feedback_tickets: List[DashboardTicketItem]
+
+
+class AgentRankItem(BaseModel):
+    user_id: int
+    name: str
+    count: int
+
+
+class DashboardProductivity(BaseModel):
+    top_closers: List[AgentRankItem]
+    top_commenters: List[AgentRankItem]
+    most_active: List[AgentRankItem]
+
+
+class BottleneckItem(BaseModel):
+    name: str
+    avg_hours: float
+    ticket_count: int
+
+
+class DashboardBottlenecks(BaseModel):
+    by_team: List[BottleneckItem]
+    by_category: List[BottleneckItem]
+    by_hotel: List[BottleneckItem]
+
+
+class VolumeItem(BaseModel):
+    name: str
+    count: int
+
+
+class DashboardVolume(BaseModel):
+    by_category: List[VolumeItem]
+    by_subcategory: List[VolumeItem]
+    by_hotel: List[VolumeItem]
+
+
+class MonthlyPoint(BaseModel):
+    month: str
+    created: int
+    closed: int
+
+
+class DashboardHistory(BaseModel):
+    monthly: List[MonthlyPoint]
+
+
+# --------------------
+# Dashboard SLA
+# --------------------
+
+class SLASummary(BaseModel):
+    total_with_sla: int
+    active_sla: int
+    resolution_breached_open: int
+    at_risk: int
+    overall_compliance_pct: float
+    avg_response_hours: Optional[float]
+
+class SLATeamRow(BaseModel):
+    team_name: str
+    total: int
+    compliant: int
+    breached: int
+    compliance_pct: float
+    avg_response_hours: Optional[float]
+
+class SLAPolicyRow(BaseModel):
+    policy_name: str
+    priority: str
+    total: int
+    compliant: int
+    breached: int
+    compliance_pct: float
+
+class SLATicketItem(BaseModel):
+    id: int
+    title: str
+    hotel_name: str
+    team_name: Optional[str]
+    policy_name: Optional[str]
+    priority: str
+    resolution_deadline: datetime
+    hours_diff: float
+
+class DashboardSLA(BaseModel):
+    summary: SLASummary
+    by_team: List[SLATeamRow]
+    by_policy: List[SLAPolicyRow]
+    at_risk_tickets: List[SLATicketItem]
+    breached_open_tickets: List[SLATicketItem]

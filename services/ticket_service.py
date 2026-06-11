@@ -4,13 +4,14 @@ from math import ceil
 
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
-from models import Team as TeamModel
+from models import Team as TeamModel, TicketSLA as TicketSLAModel
 
 from models import Category as CategoryModel, SubCategory as SubCategoryModel
 from models import Hotel as HotelModel
 from models import ProgressEnum, StatusEnum, RoleEnum
 
 from services.ticket_logs import FIELD_TO_ACTION
+from services import sla_service
 
 from schemas import TicketCreate, TicketUpdate
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_hotel, ensure_user_can_access_ticket, get_user_accessible_hotel_ids, get_user_accessible_team_ids
@@ -33,7 +34,8 @@ def get_ticket_service(
             joinedload(TicketModel.assigned_team),
             joinedload(TicketModel.category),
             joinedload(TicketModel.subcategory),
-            joinedload(TicketModel.comments)
+            joinedload(TicketModel.comments),
+            joinedload(TicketModel.sla).joinedload(TicketSLAModel.policy),
         )
         .filter(TicketModel.id == ticket_id)
         .first()
@@ -99,15 +101,16 @@ def start_ticket_service(
     
     ticket.assigned_to = current_user.id
     ticket.progress = ProgressEnum.in_progress.value
-    
-    log = TicketLogModel(   
+
+    log = TicketLogModel(
         ticket_id=ticket.id,
         user_id=current_user.id,
         action=LogActionEnum.ticket_started.value,
         value=None,
     )
-    
     db.add(log)
+
+    sla_service.mark_response_met(ticket, db)
 
     return ticket
 
@@ -168,7 +171,10 @@ def create_ticket_service(
     
     db.add(ticket_creation_log)
     db.add(ticket_team_assign_log)
-    
+
+    db.flush()
+    sla_service.apply_sla_to_ticket(db_ticket, db)
+
     return db_ticket
 
 def list_tickets_service(
@@ -429,7 +435,18 @@ def ticket_edit_service(
     if logs:
         print(logs)
         db.add_all(logs)
-        
+
+    # Hooks SLA baseados em mudança de progress
+    new_progress = update_fields.get("progress")
+    if new_progress:
+        if new_progress == ProgressEnum.feedback.value:
+            sla_service.pause_sla(ticket, db)
+        elif new_progress == ProgressEnum.in_progress.value:
+            sla_service.resume_sla(ticket, db)
+            sla_service.mark_response_met(ticket, db)
+        elif new_progress in (ProgressEnum.awaiting_confirmation.value, ProgressEnum.done.value):
+            sla_service.mark_resolution_met(ticket, db)
+
     return ticket
 
 def assign_ticket_team_service(
@@ -486,8 +503,8 @@ def update_ticket_subcategory_service(
     old_subcategory = ticket.subcategory_id
 
     ticket.subcategory_id = subcategory_id
-    
-    #Esse service foi feito para trocar a categoria automaticamente, caso mudem a subcategoria de um ticket
+
+    # Troca a categoria automaticamente quando subcategoria muda
     ticket.category_id = subcategory.category_id
 
     log = TicketLogModel(
@@ -496,8 +513,11 @@ def update_ticket_subcategory_service(
         action=LogActionEnum.subcategory_changed.value,
         value=str(subcategory_id)
     )
-
     db.add(log)
+
+    # Re-aplica SLA com a nova subcategoria (só se ticket ainda estiver aberto)
+    if ticket.status == StatusEnum.open.value:
+        sla_service.apply_sla_to_ticket(ticket, db)
 
     return ticket
 
@@ -558,21 +578,21 @@ def close_ticket_service(
     
     ticket.status = StatusEnum.closed.value
     ticket.progress = ProgressEnum.done.value
-    
+
     log = TicketLogModel(
         user_id=current_user.id,
         ticket_id=ticket.id,
         action=LogActionEnum.ticket_closed.value,
         value=StatusEnum.closed.value
     )
-    
     db.add(ticket)
     db.add(log)
-    
+
+    sla_service.mark_resolution_met(ticket, db)
+
     db.commit()
-    
     db.refresh(ticket)
-    
+
     return ticket
 
 def reopen_ticket_service(

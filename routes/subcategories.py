@@ -7,8 +7,8 @@ from auth_utils import get_current_user
 
 from services.authorization import ensure_admin
 
-from models import SubCategory as SubCategoryModel, Category as CategoryModel
-from schemas import SubCategoryCreate, SubCategoryUpdate, SubCategory
+from models import SubCategory as SubCategoryModel, Category as CategoryModel, SLAPolicy as SLAPolicyModel
+from schemas import SubCategoryCreate, SubCategoryUpdate, SubCategory, SubCategoryWithSLA
 
 router = APIRouter(
     prefix="/subcategories",
@@ -37,18 +37,18 @@ def create_subcategory(
 
     return db_sub
 
-@router.get("/", response_model=List[SubCategory])
+@router.get("/", response_model=List[SubCategoryWithSLA])
 def list_subcategories(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
     category_id: int | None = None
 ):
-    
-    query = db.query(SubCategoryModel)
-    
+    from sqlalchemy.orm import joinedload
+    query = db.query(SubCategoryModel).options(joinedload(SubCategoryModel.sla_policy))
+
     if category_id:
         query = query.filter(SubCategoryModel.category_id == category_id)
-    
+
     return query.all()
 
 
@@ -64,14 +64,20 @@ def get_subcategory(
     return sub
 
 
-@router.put("/{subcategory_id}", response_model=SubCategory)
+@router.put("/{subcategory_id}", response_model=SubCategoryWithSLA)
 def update_subcategory(
     subcategory_id: int,
     data: SubCategoryUpdate,
     db: Session = Depends(get_db),
     current_user = Depends(ensure_admin)
 ):
-    sub = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
+    from sqlalchemy.orm import joinedload
+    sub = (
+        db.query(SubCategoryModel)
+        .options(joinedload(SubCategoryModel.sla_policy))
+        .filter(SubCategoryModel.id == subcategory_id)
+        .first()
+    )
     if not sub:
         raise HTTPException(status_code=404, detail="SubCategory not found")
 
@@ -83,6 +89,13 @@ def update_subcategory(
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
         sub.category_id = data.category_id
+
+    if "sla_policy_id" in data.model_fields_set:
+        if data.sla_policy_id is not None:
+            policy = db.query(SLAPolicyModel).filter(SLAPolicyModel.id == data.sla_policy_id).first()
+            if not policy:
+                raise HTTPException(status_code=404, detail="Política SLA não encontrada")
+        sub.sla_policy_id = data.sla_policy_id
 
     db.commit()
     db.refresh(sub)

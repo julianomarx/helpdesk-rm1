@@ -165,8 +165,10 @@ def create_access_token(user: UserModel, db: Session) -> str:
     role_menus = {
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
-            {"label": "Chamados", "page": "tickets"},          
-            {"label": "Gerenciar usuários", "page": "manage-users"}
+            {"label": "Chamados", "page": "tickets"},
+            {"label": "Gerenciar usuários", "page": "manage-users"},
+            {"label": "Gerenciar hotéis", "page": "manage-hotels"},
+            {"label": "Categorias & SLA", "page": "manage-categories"},
         ],
         "agent": [
             {"label": "Chamados", "page": "tickets"},
@@ -189,6 +191,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
         "name": user.name,
         "role": user.role,
         "email": user.email,
+        "avatar_url": user.avatar_url or "",
         "iat": now,
         "exp": expire,
         "hotels": user_hotels,
