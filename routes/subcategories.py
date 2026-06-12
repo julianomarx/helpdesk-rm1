@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from database import get_db
@@ -7,7 +7,7 @@ from auth_utils import get_current_user
 
 from services.authorization import ensure_admin
 
-from models import SubCategory as SubCategoryModel, Category as CategoryModel, SLAPolicy as SLAPolicyModel
+from models import SubCategory as SubCategoryModel, Category as CategoryModel, SLAPolicy as SLAPolicyModel, Ticket as TicketModel
 from schemas import SubCategoryCreate, SubCategoryUpdate, SubCategory, SubCategoryWithSLA
 
 router = APIRouter(
@@ -21,7 +21,7 @@ def create_subcategory(
     sub: SubCategoryCreate,
     db: Session = Depends(get_db),
     current_user = Depends(ensure_admin)
-):  
+):
     category = db.query(CategoryModel).filter(CategoryModel.id == sub.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -37,13 +37,13 @@ def create_subcategory(
 
     return db_sub
 
+
 @router.get("/", response_model=List[SubCategoryWithSLA])
 def list_subcategories(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
     category_id: int | None = None
 ):
-    from sqlalchemy.orm import joinedload
     query = db.query(SubCategoryModel).options(joinedload(SubCategoryModel.sla_policy))
 
     if category_id:
@@ -71,13 +71,7 @@ def update_subcategory(
     db: Session = Depends(get_db),
     current_user = Depends(ensure_admin)
 ):
-    from sqlalchemy.orm import joinedload
-    sub = (
-        db.query(SubCategoryModel)
-        .options(joinedload(SubCategoryModel.sla_policy))
-        .filter(SubCategoryModel.id == subcategory_id)
-        .first()
-    )
+    sub = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="SubCategory not found")
 
@@ -98,7 +92,13 @@ def update_subcategory(
         sub.sla_policy_id = data.sla_policy_id
 
     db.commit()
-    db.refresh(sub)
+
+    sub = (
+        db.query(SubCategoryModel)
+        .options(joinedload(SubCategoryModel.sla_policy))
+        .filter(SubCategoryModel.id == subcategory_id)
+        .first()
+    )
 
     return sub
 
@@ -112,6 +112,10 @@ def delete_subcategory(
     sub = db.query(SubCategoryModel).filter(SubCategoryModel.id == subcategory_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="SubCategory not found")
+
+    db.query(TicketModel).filter(TicketModel.subcategory_id == subcategory_id).update(
+        {"subcategory_id": None}, synchronize_session=False
+    )
 
     db.delete(sub)
     db.commit()

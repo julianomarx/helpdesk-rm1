@@ -12,6 +12,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
+from services.notification_service import create_notification
 from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
 from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service, get_ticket_service      
 
@@ -167,10 +168,21 @@ def start_ticket(
 ):
     
     ticket = start_ticket_service(ticket_id, current_user, db)
-    
+
+    # Notifica o criador do chamado que o atendimento foi iniciado (se não for ele mesmo)
+    if ticket.created_by and ticket.created_by != current_user.id:
+        create_notification(
+            db,
+            user_id=ticket.created_by,
+            type="ticket_started",
+            title=f"Atendimento iniciado no chamado #{ticket.id}",
+            body=f'"{ticket.title}" está sendo atendido por {current_user.name}',
+            ticket_id=ticket.id,
+        )
+
     db.commit()
     db.refresh(ticket)
-    
+
     return ticket   
 
 @router.put("/close-ticket/{ticket_id}", response_model=TicketOut)
@@ -249,10 +261,21 @@ def assign_agent(
         raise HTTPException(status_code=401, detail="Não se pode transferir chamados que ainda estão aguardando atendimento")
     
     assign_agent_to_ticket(ticket, current_user, target_user, db)
-    
+
+    # Notifica o novo responsável (se não for ele mesmo que está atribuindo)
+    if target_user.id != current_user.id:
+        create_notification(
+            db,
+            user_id=target_user.id,
+            type="ticket_assigned",
+            title=f"Chamado #{ticket.id} atribuído a você",
+            body=f'"{ticket.title}" foi direcionado por {current_user.name}',
+            ticket_id=ticket.id,
+        )
+
     db.commit()
     db.refresh(ticket)
-    
+
     return ticket
 
 @router.put("/{ticket_id}/cancel", response_model=TicketOut)

@@ -65,10 +65,26 @@ def list_users(
         current_user=current_user
     )
     
+@router.get("/mentionable")
+def get_mentionable_users(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    if current_user.role not in [RoleEnum.admin, RoleEnum.agent]:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    users = (
+        db.query(UserModel)
+        .filter(UserModel.role.in_([RoleEnum.admin, RoleEnum.agent]))
+        .order_by(UserModel.name)
+        .all()
+    )
+    return [{"id": u.id, "name": u.name, "email": u.email} for u in users]
+
+
 @router.get("/{user_id}", response_model=UserOut)
 def get_user(
-    user_id: int, 
-    db: Session = Depends(get_db), 
+    user_id: int,
+    db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     

@@ -19,6 +19,7 @@ from auth_utils import get_current_user
 
 from services.authorization import ensure_user_can_access_ticket
 from services.comment_service import create_comment_service
+from services.notification_service import create_notification, extract_mentioned_users
 
 router = APIRouter(
     prefix="/comments",
@@ -33,7 +34,25 @@ def create_comment(
 ):
     
     db_comment = create_comment_service(current_user, comment, db)
-     
+
+    # Notificações: mencionar usuários via @nome
+    mentioned = extract_mentioned_users(comment.comment, db, exclude_user_id=current_user.id)
+    for user in mentioned:
+        ticket_ref = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
+        title = f"@{current_user.name.split()[0]} mencionou você"
+        body = f"No chamado #{comment.ticket_id}: {comment.comment[:120]}"
+        create_notification(db, user.id, "mention", title, body, comment.ticket_id)
+
+    # Notificação para agente responsável quando cliente comenta
+    if current_user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
+        ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
+        if ticket and ticket.assigned_to and ticket.assigned_to != current_user.id:
+            title = f"Resposta do cliente no chamado #{ticket.id}"
+            body = f"{current_user.name}: {comment.comment[:120]}"
+            create_notification(db, ticket.assigned_to, "client_reply", title, body, ticket.id)
+
+    db.commit()
+
     return db_comment
 
 @router.put("/{comment_id}", response_model=CommentSchema)

@@ -1,12 +1,14 @@
 from fastapi import HTTPException
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
 
-from models import RoleEnum
+from models import RoleEnum, StatusEnum, ProgressEnum
 from models import Hotel as HotelModel
 from models import User as UserModel
+from models import Ticket as TicketModel
 
 from schemas import HotelCreate, Hotel, HotelUpdate, HotelOut
 
@@ -97,6 +99,52 @@ def update_hotel(
     db.refresh(hotel)
     
     return hotel
+
+@router.get("/{hotel_id}/stats")
+def get_hotel_stats(
+    hotel_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(ensure_admin)
+):
+    hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+    if not hotel:
+        raise HTTPException(status_code=404, detail="Hotel not found")
+
+    by_status = db.query(TicketModel.status, func.count(TicketModel.id)).filter(
+        TicketModel.hotel_id == hotel_id
+    ).group_by(TicketModel.status).all()
+
+    by_progress = db.query(TicketModel.progress, func.count(TicketModel.id)).filter(
+        TicketModel.hotel_id == hotel_id,
+        TicketModel.status == StatusEnum.open
+    ).group_by(TicketModel.progress).all()
+
+    recent = db.query(TicketModel).filter(
+        TicketModel.hotel_id == hotel_id
+    ).order_by(TicketModel.created_at.desc()).limit(10).all()
+
+    status_map = {s.value: c for s, c in by_status}
+    progress_map = {p.value: c for p, c in by_progress}
+
+    return {
+        "total": sum(status_map.values()),
+        "open": status_map.get("open", 0),
+        "closed": status_map.get("closed", 0),
+        "cancelled": status_map.get("cancelled", 0),
+        "by_progress": progress_map,
+        "recent": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "status": t.status.value,
+                "progress": t.progress.value,
+                "priority": t.priority.value,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in recent
+        ],
+    }
+
 
 @router.delete("/{hotel_id}")
 def delete_hotel(

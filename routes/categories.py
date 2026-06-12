@@ -54,7 +54,6 @@ def update_category(
     current_user: UserModel = Depends(ensure_admin)
 ):
     updated_category = update_category_service(category_id, category_update, db)
-
     return updated_category
 
 @router.delete("/{category_id}")
