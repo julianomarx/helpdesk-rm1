@@ -536,3 +536,40 @@ class TodoOut(BaseModel):
 
 class ScheduleVisitInput(BaseModel):
     scheduled_at: datetime
+
+
+# ── MURAL ────────────────────────────────────────────────────────────────────
+
+class MuralCommentCreate(BaseModel):
+    body: str
+
+class MuralCommentOut(BaseModel):
+    id: int
+    body: str
+    created_at: datetime
+    author: UserBasic
+
+    class Config:
+        from_attributes = True
+
+class MuralPostCreate(BaseModel):
+    body: str
+
+class MuralPostOut(BaseModel):
+    id: int
+    body: str
+    created_at: datetime
+    author: UserBasic
+    comments: List[MuralCommentOut] = []
+    ack_count: int = 0
+    acked_by_me: bool = False
+
+    class Config:
+        from_attributes = True
+
+class MuralListOut(BaseModel):
+    items: List[MuralPostOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int

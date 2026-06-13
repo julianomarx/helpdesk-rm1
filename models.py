@@ -1,6 +1,6 @@
 from enum import Enum as PyEnum
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import Boolean, Column, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -102,6 +102,9 @@ class User(Base):
     teams = relationship("UserTeam", back_populates="user")
     todos_created = relationship("Todo", back_populates="creator", foreign_keys="Todo.creator_id")
     todos_assigned = relationship("Todo", back_populates="assignee", foreign_keys="Todo.assignee_id")
+    mural_posts = relationship("MuralPost", back_populates="author", cascade="all, delete-orphan")
+    mural_comments = relationship("MuralComment", back_populates="author", cascade="all, delete-orphan")
+    mural_acks = relationship("MuralAck", back_populates="user", cascade="all, delete-orphan")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -291,11 +294,13 @@ class Notification(Base):
     title = Column(String(255), nullable=False)
     body = Column(Text, nullable=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True)
+    mural_post_id = Column(Integer, ForeignKey("mural_posts.id", ondelete="SET NULL"), nullable=True)
     read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
     ticket = relationship("Ticket")
+    mural_post = relationship("MuralPost")
 
 
 class Attachment(Base):
@@ -334,3 +339,43 @@ class Todo(Base):
 
     creator = relationship("User", back_populates="todos_created", foreign_keys=[creator_id])
     assignee = relationship("User", back_populates="todos_assigned", foreign_keys=[assignee_id])
+
+
+class MuralPost(Base):
+    __tablename__ = "mural_posts"
+
+    id = Column(Integer, primary_key=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    author = relationship("User", back_populates="mural_posts")
+    comments = relationship("MuralComment", back_populates="post", cascade="all, delete-orphan", order_by="MuralComment.created_at")
+    acks = relationship("MuralAck", back_populates="post", cascade="all, delete-orphan")
+
+
+class MuralComment(Base):
+    __tablename__ = "mural_comments"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("mural_posts.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    post = relationship("MuralPost", back_populates="comments")
+    author = relationship("User", back_populates="mural_comments")
+
+
+class MuralAck(Base):
+    __tablename__ = "mural_acks"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("mural_posts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_mural_ack"),)
+
+    post = relationship("MuralPost", back_populates="acks")
+    user = relationship("User", back_populates="mural_acks")

@@ -15,6 +15,7 @@ def _serialize(n: NotificationModel):
         "title": n.title,
         "body": n.body,
         "ticket_id": n.ticket_id,
+        "mural_post_id": n.mural_post_id,
         "read": n.read,
         "created_at": n.created_at.isoformat() if n.created_at else None,
     }

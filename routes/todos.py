@@ -57,11 +57,11 @@ def create_todo(
     db: Session = Depends(get_db),
 ):
     _require_staff(current_user)
-    mentioned = extract_mentioned_users(payload.body, db, exclude_user_id=current_user.id)
-    if not mentioned:
-        raise HTTPException(status_code=422, detail="Mencione um usuário com @nome para atribuir o TODO")
+    # Allow self-mention — no exclude_user_id here
+    mentioned = extract_mentioned_users(payload.body, db)
+    # If no mention → self-assign
+    assignee = mentioned[0] if mentioned else current_user
 
-    assignee = mentioned[0]
     todo = TodoModel(
         creator_id=current_user.id,
         assignee_id=assignee.id,
@@ -70,12 +70,14 @@ def create_todo(
     db.add(todo)
     db.flush()
 
-    first_name = current_user.name.split()[0] if current_user.name else current_user.name
-    create_notification(
-        db, assignee.id, "todo_assigned",
-        f"@{first_name} atribuiu um TODO para você",
-        payload.body,
-    )
+    # Notify assignee only when it's a different person
+    if assignee.id != current_user.id:
+        first_name = current_user.name.split()[0] if current_user.name else current_user.name
+        create_notification(
+            db, assignee.id, "todo_assigned",
+            f"@{first_name} atribuiu um TODO para você",
+            payload.body,
+        )
     db.commit()
     db.refresh(todo)
     return todo

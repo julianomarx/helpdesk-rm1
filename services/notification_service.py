@@ -1,6 +1,6 @@
 import re
 from sqlalchemy.orm import Session
-from models import Notification as NotificationModel, User as UserModel
+from models import Notification as NotificationModel, User as UserModel, RoleEnum
 
 
 def create_notification(
@@ -10,6 +10,7 @@ def create_notification(
     title: str,
     body: str = None,
     ticket_id: int = None,
+    mural_post_id: int = None,
 ):
     notif = NotificationModel(
         user_id=user_id,
@@ -17,8 +18,30 @@ def create_notification(
         title=title,
         body=body,
         ticket_id=ticket_id,
+        mural_post_id=mural_post_id,
     )
     db.add(notif)
+
+
+def notify_all_staff(
+    db: Session,
+    exclude_user_id: int,
+    type: str,
+    title: str,
+    body: str = None,
+    mural_post_id: int = None,
+):
+    """Notify all admin/agent users except the author."""
+    staff = (
+        db.query(UserModel)
+        .filter(
+            UserModel.role.in_([RoleEnum.admin, RoleEnum.agent]),
+            UserModel.id != exclude_user_id,
+        )
+        .all()
+    )
+    for u in staff:
+        create_notification(db, u.id, type, title, body, mural_post_id=mural_post_id)
 
 
 def extract_mentioned_users(text: str, db: Session, exclude_user_id: int = None):

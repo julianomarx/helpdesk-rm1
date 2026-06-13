@@ -118,6 +118,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Chamados", "page": "tickets"},
+            {"label": "Mural", "page": "mural"},
             {"label": "Equipes", "page": "teams"},
             {"label": "Gerenciar usuários", "page": "manage-users"},
             {"label": "Gerenciar hotéis", "page": "manage-hotels"},
@@ -125,15 +126,15 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Relatório de Atividades", "page": "activity-report"},
         ],
         "agent": [
+            {"label": "Dashboard", "page": "dashboard"},
             {"label": "Chamados", "page": "tickets"},
+            {"label": "Mural", "page": "mural"},
             {"label": "Equipes", "page": "teams"},
-            {"label": "Criar Usuário", "page": "create-user"},
             {"label": "Gerenciar usuários", "page": "manage-users"}
         ],
         "client_manager": [
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Meus chamados", "page": "tickets"},
-            {"label": "Criar usuário", "page": "create-user"},
             {"label": "Gerenciar usuários", "page": "manage-users"},
         ],
         "client_receptionist": [
