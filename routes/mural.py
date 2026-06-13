@@ -14,7 +14,7 @@ from models import (
     User as UserModel,
     RoleEnum,
 )
-from schemas import MuralPostCreate, MuralPostOut, MuralCommentCreate, MuralCommentOut, MuralListOut
+from schemas import MuralPostCreate, MuralPostOut, MuralCommentCreate, MuralCommentOut, MuralListOut, MuralAckOut
 from services.notification_service import (
     create_notification,
     notify_all_staff,
@@ -50,6 +50,10 @@ def _build_post_out(post: MuralPostModel, current_user_id: int) -> MuralPostOut:
         ],
         ack_count=ack_count,
         acked_by_me=acked_by_me,
+        acks=[
+            MuralAckOut(id=a.id, created_at=a.created_at, user=a.user)
+            for a in post.acks
+        ],
     )
 
 
@@ -74,7 +78,7 @@ def list_posts(
         .options(
             joinedload(MuralPostModel.author),
             joinedload(MuralPostModel.comments).joinedload(MuralCommentModel.author),
-            joinedload(MuralPostModel.acks),
+            joinedload(MuralPostModel.acks).joinedload(MuralAckModel.user),
         )
         .filter(
             MuralPostModel.created_at >= start_date,
@@ -201,7 +205,11 @@ def ack_post(
         .first()
     )
     if existing:
-        return {"acked": True, "ack_count": len(post.acks)}
+        return {
+            "acked": True,
+            "ack_count": len(post.acks),
+            "new_ack": None,
+        }
 
     ack = MuralAckModel(post_id=post_id, user_id=current_user.id)
     db.add(ack)
@@ -209,9 +217,16 @@ def ack_post(
         db.commit()
     except IntegrityError:
         db.rollback()
+        db.refresh(post)
+        return {"acked": True, "ack_count": len(post.acks), "new_ack": None}
 
+    db.refresh(ack)
     db.refresh(post)
-    return {"acked": True, "ack_count": len(post.acks)}
+    return {
+        "acked": True,
+        "ack_count": len(post.acks),
+        "new_ack": {"id": ack.id, "created_at": ack.created_at.isoformat(), "user": {"id": current_user.id, "name": current_user.name}},
+    }
 
 
 @router.delete("/{post_id}", status_code=200)

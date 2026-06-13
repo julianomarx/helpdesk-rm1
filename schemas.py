@@ -552,6 +552,14 @@ class MuralCommentOut(BaseModel):
     class Config:
         from_attributes = True
 
+class MuralAckOut(BaseModel):
+    id: int
+    created_at: datetime
+    user: UserBasic
+
+    class Config:
+        from_attributes = True
+
 class MuralPostCreate(BaseModel):
     body: str
 
@@ -563,6 +571,7 @@ class MuralPostOut(BaseModel):
     comments: List[MuralCommentOut] = []
     ack_count: int = 0
     acked_by_me: bool = False
+    acks: List[MuralAckOut] = []
 
     class Config:
         from_attributes = True
