@@ -14,6 +14,7 @@ from database import get_db
 from models import User as UserModel, Ticket as TicketModel
 from models import Hotel as HotelModel
 from models import UserHotel as UserHotelModel
+from models import Team as TeamModel, Category as CategoryModel, SubCategory as SubCategoryModel
 from schemas import User
 from models import RoleEnum
 
@@ -98,67 +99,18 @@ def create_access_token(user: UserModel, db: Session) -> str:
     ]
 
     teams = [
-        {
-            "name": "Suporte TI",
-            "id": 1
-        },
-        {
-            "name": "Suporte PMS",
-            "id": 2
-        },
-        {
-            "name": "Suporte Fiscal",
-            "id": 3
-        },
-        {
-            "name": "Suporte PDV",
-            "id": 4
-        },
-        {
-            "name": "Usuários nominais",
-            "id": 5
-        }
+        {"id": t.id, "name": t.name}
+        for t in db.query(TeamModel.id, TeamModel.name).order_by(TeamModel.id).all()
     ]
-    
+
     categories = [
-        {"id": 1, "name": "TI"},
-        {"id": 2, "name": "PMS"},
-        {"id": 3, "name": "FISCAL"},
-        {"id": 4, "name": "PDV"},
-        {"id": 5, "name": "Usuários Nominais"},
+        {"id": c.id, "name": c.name, "team_id": c.team_id}
+        for c in db.query(CategoryModel.id, CategoryModel.name, CategoryModel.team_id).order_by(CategoryModel.id).all()
     ]
-    
+
     subcategories = [
-        {"id": 1, "name": "Monitores e Periféricos", "category_id": 1},
-        {"id": 2, "name": "Usuários/Email (Acessos, Senhas, Opera)", "category_id": 1},
-        {"id": 3, "name": "Impressoras e Scanners", "category_id": 1},
-        {"id": 4, "name": "Impressora Fiscal (TÉRMICA)", "category_id": 1},
-        {"id": 5, "name": "Rede e Internet (ADM / WiFi)", "category_id": 1},
-        {"id": 6, "name": "Infraestrutura (CPD e Equipamentos)", "category_id": 1},
-        {"id": 7, "name": "Sistema de Chaves Eletrônicas", "category_id": 1},
-        {"id": 8, "name": "Sistema de Ponto", "category_id": 1},
-        {"id": 9, "name": "Outros", "category_id": 1},
-
-        {"id": 10, "name": "Relatórios", "category_id": 2},
-        {"id": 11, "name": "Permissões", "category_id": 2},
-        {"id": 12, "name": "Problemas Gerais", "category_id": 2},
-        {"id": 13, "name": "Chaves Magnetizadas pelo Opera", "category_id": 2},
-
-        {"id": 14, "name": "Notas", "category_id": 3},
-        {"id": 15, "name": "Boletos", "category_id": 3},
-        {"id": 16, "name": "Outros", "category_id": 3},
-
-        {"id": 17, "name": "Cadastro de Itens", "category_id": 4},
-        {"id": 18, "name": "Busca de Hóspedes por Apartamentos", "category_id": 4},
-        {"id": 19, "name": "Impressão", "category_id": 4},
-        {"id": 20, "name": "Problemas Gerais", "category_id": 4},
-        {"id": 21, "name": "Outros", "category_id": 4},
-
-        {"id": 22, "name": "Novo usuário", "category_id": 5},
-        {"id": 23, "name": "Inativar usuário", "category_id": 5},
-        {"id": 24, "name": "Substituição de usuário", "category_id": 5},
-        {"id": 25, "name": "Problemas de acesso/permissões/email", "category_id": 5},
-        {"id": 26, "name": "Outros", "category_id": 5}
+        {"id": s.id, "name": s.name, "category_id": s.category_id}
+        for s in db.query(SubCategoryModel.id, SubCategoryModel.name, SubCategoryModel.category_id).order_by(SubCategoryModel.id).all()
     ]
 
 
@@ -166,6 +118,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Chamados", "page": "tickets"},
+            {"label": "Equipes", "page": "teams"},
             {"label": "Gerenciar usuários", "page": "manage-users"},
             {"label": "Gerenciar hotéis", "page": "manage-hotels"},
             {"label": "Categorias & SLA", "page": "manage-categories"},
@@ -173,11 +126,12 @@ def create_access_token(user: UserModel, db: Session) -> str:
         ],
         "agent": [
             {"label": "Chamados", "page": "tickets"},
+            {"label": "Equipes", "page": "teams"},
             {"label": "Criar Usuário", "page": "create-user"},
             {"label": "Gerenciar usuários", "page": "manage-users"}
         ],
         "client_manager": [
-            {"label": "Dashboard", "page": "dashboard"},          
+            {"label": "Dashboard", "page": "dashboard"},
             {"label": "Meus chamados", "page": "tickets"},
             {"label": "Criar usuário", "page": "create-user"},
             {"label": "Gerenciar usuários", "page": "manage-users"},

@@ -1,4 +1,6 @@
 # routes/auth.py
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
@@ -44,7 +46,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     }
 
 @router.get("/me", response_model=User)
-def read_current_user(current_user: UserModel = Depends(get_current_user)):
+def read_current_user(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.last_seen_at = datetime.now(timezone.utc)
+    db.commit()
     return current_user
     
 @router.post("/refresh", response_model=Token)

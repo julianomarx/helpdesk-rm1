@@ -1,11 +1,13 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from models import Ticket as TicketModel, Team as TeamModel, TicketLog as TicketLogModel
 from models import User as UserModel, Category as CategoryModel
-from models import LogActionEnum
+from models import LogActionEnum, ProgressEnum as ProgressEnumModel
 from schemas import TicketCreate, TicketUpdate as TicketSchema, TicketOut, TicketUpdate, TicketWithComments, SubcategoryUpdate, TicketListOut
-from schemas import StatusEnum, ProgressEnum
+from schemas import StatusEnum, ProgressEnum, ScheduleVisitInput
 
 from models import RoleEnum
 
@@ -285,5 +287,35 @@ def cancel_ticket(
     db: Session = Depends(get_db)
 ):
     ticket = cancel_ticket_service(ticket_id, current_user, db)
-    
+    return ticket
+
+
+@router.put("/{ticket_id}/schedule-visit", response_model=TicketOut)
+def schedule_visit(
+    ticket_id: int,
+    payload: ScheduleVisitInput,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role not in (RoleEnum.admin, RoleEnum.agent):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    ticket = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket não encontrado")
+
+    prev_date = ticket.scheduled_visit_at
+    ticket.scheduled_visit_at = payload.scheduled_at
+    ticket.progress = ProgressEnumModel.scheduled_visit
+
+    action = "visit_rescheduled" if prev_date else "visit_scheduled"
+    log = TicketLogModel(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        action=action,
+        value=payload.scheduled_at.isoformat(),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(ticket)
     return ticket

@@ -86,6 +86,24 @@ def dashboard_overview_service(
         .count()
     )
 
+    closed_today_tickets = (
+        db.query(TicketModel)
+        .filter(
+            TicketModel.status == StatusEnum.closed,
+            func.date(TicketModel.updated_at) == today
+        )
+        .count()
+    )
+
+    scheduled_visit_tickets = (
+        db.query(TicketModel)
+        .filter(
+            TicketModel.progress == ProgressEnum.scheduled_visit,
+            TicketModel.status == StatusEnum.open
+        )
+        .count()
+    )
+
     return {
         "open_tickets": open_tickets,
         "in_progress_tickets": in_progress_tickets,
@@ -95,7 +113,9 @@ def dashboard_overview_service(
         "unassigned_tickets": unassigned_tickets,
         "stale_48h_tickets": stale_48h_tickets,
         "high_priority_tickets": high_priority_tickets,
-        "created_today_tickets": created_today_tickets
+        "created_today_tickets": created_today_tickets,
+        "closed_today_tickets": closed_today_tickets,
+        "scheduled_visit_tickets": scheduled_visit_tickets,
     }
 
 
@@ -251,7 +271,7 @@ def bottlenecks_dashboard_service(current_user, db):
         WHERE tk.status = 'closed'
         GROUP BY h.id, h.name
         ORDER BY avg_hours DESC
-        LIMIT 15
+        LIMIT 10
     """)).fetchall()
 
     def row_to_dict(row):
@@ -292,7 +312,7 @@ def volume_dashboard_service(current_user, db):
         WHERE tk.status != 'cancelled'
         GROUP BY h.id, h.name
         ORDER BY count DESC
-        LIMIT 20
+        LIMIT 10
     """)).fetchall()
 
     return {

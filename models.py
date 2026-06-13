@@ -16,6 +16,7 @@ class ProgressEnum(str, PyEnum):
     in_progress = "in_progress"
     feedback = "feedback"
     awaiting_confirmation = "awaiting_confirmation"
+    scheduled_visit = "scheduled_visit"
     done = "done"
 
 class StatusEnum(str, PyEnum):
@@ -88,6 +89,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(SAEnum(RoleEnum, native_enum=False), nullable=False)
     avatar_url = Column(String(255), nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -98,6 +100,8 @@ class User(Base):
     hotels = relationship("UserHotel", back_populates="user", cascade="all, delete-orphan")
     logs = relationship("TicketLog", back_populates="user", cascade="all, delete-orphan")
     teams = relationship("UserTeam", back_populates="user")
+    todos_created = relationship("Todo", back_populates="creator", foreign_keys="Todo.creator_id")
+    todos_assigned = relationship("Todo", back_populates="assignee", foreign_keys="Todo.assignee_id")
 
 class Ticket(Base):
     __tablename__ = "tickets"
@@ -124,6 +128,7 @@ class Ticket(Base):
     assigned_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     subcategory_id = Column(Integer, ForeignKey("subcategories.id"), nullable=True)
+    scheduled_visit_at = Column(DateTime(timezone=True), nullable=True)
 
     #relacionamentos bidirecionais
     creator = relationship("User", back_populates="created_tickets", foreign_keys=[created_by])
@@ -314,3 +319,18 @@ class Attachment(Base):
     #relacionamento
     ticket = relationship("Ticket", back_populates="attachments")
     uploader = relationship("User")
+
+
+class Todo(Base):
+    __tablename__ = "todos"
+
+    id = Column(Integer, primary_key=True)
+    creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, nullable=False)
+    done = Column(Boolean, default=False, nullable=False)
+    done_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    creator = relationship("User", back_populates="todos_created", foreign_keys=[creator_id])
+    assignee = relationship("User", back_populates="todos_assigned", foreign_keys=[assignee_id])

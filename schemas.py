@@ -19,6 +19,7 @@ class ProgressEnum(str, Enum):
     in_progress = "in_progress"
     feedback = "feedback"
     awaiting_confirmation = "awaiting_confirmation"
+    scheduled_visit = "scheduled_visit"
     done = "done"
 
 class RoleEnum(str, Enum):
@@ -307,6 +308,7 @@ class Ticket(TicketCreate):
     progress: ProgressEnum = ProgressEnum.waiting
     status: StatusEnum = StatusEnum.open
     assigned_team_id: int
+    scheduled_visit_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -392,10 +394,12 @@ class AttachmentOut(BaseModel):
 class DashboardOverview(BaseModel):
 
     created_today_tickets: int
+    closed_today_tickets: int
     open_tickets: int
     in_progress_tickets: int
     feedback_tickets: int
     awaiting_confirmation_tickets: int
+    scheduled_visit_tickets: int
     unassigned_tickets: int
     stale_48h_tickets: int
     high_priority_tickets: int
@@ -511,3 +515,24 @@ class DashboardSLA(BaseModel):
     by_policy: List[SLAPolicyRow]
     at_risk_tickets: List[SLATicketItem]
     breached_open_tickets: List[SLATicketItem]
+
+
+# ── TODO ─────────────────────────────────────────────────────────────────────
+
+class TodoCreate(BaseModel):
+    body: str
+
+class TodoOut(BaseModel):
+    id: int
+    body: str
+    done: bool
+    done_at: Optional[datetime] = None
+    created_at: datetime
+    creator: UserBasic
+    assignee: UserBasic
+
+    class Config:
+        from_attributes = True
+
+class ScheduleVisitInput(BaseModel):
+    scheduled_at: datetime

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+from typing import List
 
 from models import User as UserModel
 from schemas import (
@@ -75,3 +77,36 @@ def get_sla_dashboard(
     db: Session = Depends(get_db)
 ):
     return sla_dashboard_service(current_user, db)
+
+
+@router.get("/bottlenecks/hotels")
+def get_bottlenecks_hotels_paginated(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    offset = (page - 1) * page_size
+    rows = db.execute(text("""
+        SELECT h.name, ROUND(AVG(TIMESTAMPDIFF(HOUR, tk.created_at, tk.updated_at)), 1) AS avg_hours,
+               COUNT(tk.id) AS ticket_count
+        FROM tickets tk
+        JOIN hotels h ON tk.hotel_id = h.id
+        WHERE tk.status = 'closed'
+        GROUP BY h.id, h.name
+        ORDER BY avg_hours DESC
+        LIMIT :limit OFFSET :offset
+    """), {"limit": page_size, "offset": offset}).fetchall()
+
+    total = db.execute(text("""
+        SELECT COUNT(DISTINCT tk.hotel_id) FROM tickets tk
+        WHERE tk.status = 'closed' AND tk.hotel_id IS NOT NULL
+    """)).scalar() or 0
+
+    return {
+        "items": [{"name": r.name, "avg_hours": float(r.avg_hours or 0), "ticket_count": r.ticket_count} for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": max(1, -(-total // page_size))
+    }

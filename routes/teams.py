@@ -1,9 +1,13 @@
+from datetime import datetime, timezone, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from typing import List
 
 from models import Team as TeamModel
 from models import User as UserModel, UserTeam as UserTeamModel
+from models import Ticket as TicketModel, StatusEnum
 from schemas import RoleEnum
 from schemas import TeamBase, Team, User
 from database import get_db
@@ -11,6 +15,8 @@ from auth_utils import get_current_user
 
 from services.team_service import add_user_to_team_service, list_team_users_service
 from services.authorization import ensure_admin
+
+ONLINE_THRESHOLD_MINUTES = 10
 
 router = APIRouter(
     prefix="/teams",
@@ -84,7 +90,7 @@ def delete_team(
 
 @router.get("/{team_id}/users/", response_model=List[User])
 def list_team_users(
-    team_id: int, 
+    team_id: int,
     role: RoleEnum | None = Query(default=None),
     current_user: UserModel = Depends(get_current_user),
     search: str | None = Query(default=None),
@@ -95,5 +101,56 @@ def list_team_users(
         current_user=current_user,
         db=db
     )
-    
-    return team_users
+
+
+@router.get("/overview")
+def teams_overview(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    online_cutoff = datetime.now(timezone.utc) - timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+
+    # active ticket counts per user
+    active_counts = dict(
+        db.query(TicketModel.assigned_to, func.count(TicketModel.id))
+        .filter(TicketModel.status == StatusEnum.open, TicketModel.assigned_to.isnot(None))
+        .group_by(TicketModel.assigned_to)
+        .all()
+    )
+
+    teams = (
+        db.query(TeamModel)
+        .options(joinedload(TeamModel.users).joinedload(UserTeamModel.user))
+        .order_by(TeamModel.id)
+        .all()
+    )
+
+    result = []
+    for team in teams:
+        members = []
+        for ut in team.users:
+            u = ut.user
+            if not u:
+                continue
+            last_seen = u.last_seen_at
+            is_online = (
+                last_seen is not None
+                and last_seen.replace(tzinfo=timezone.utc) > online_cutoff
+                if last_seen and last_seen.tzinfo is None
+                else (last_seen is not None and last_seen > online_cutoff)
+            )
+            members.append({
+                "id": u.id,
+                "name": u.name,
+                "role": u.role,
+                "avatar_url": u.avatar_url,
+                "last_seen_at": last_seen.isoformat() if last_seen else None,
+                "online": is_online,
+                "active_tickets": active_counts.get(u.id, 0),
+            })
+        result.append({
+            "id": team.id,
+            "name": team.name,
+            "members": members,
+        })
+    return result
