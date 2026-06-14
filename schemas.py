@@ -307,8 +307,11 @@ class Ticket(TicketCreate):
     updated_at: datetime
     progress: ProgressEnum = ProgressEnum.waiting
     status: StatusEnum = StatusEnum.open
-    assigned_team_id: int
+    assigned_team_id: Optional[int] = None
     scheduled_visit_at: Optional[datetime] = None
+    # Nullable no banco: podem ser nulificados ao excluir categoria/subcategoria
+    category_id: Optional[int] = None
+    subcategory_id: Optional[int] = None
 
     class Config:
         from_attributes = True
