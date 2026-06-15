@@ -1,6 +1,6 @@
 import re
 from sqlalchemy.orm import Session
-from models import Notification as NotificationModel, User as UserModel, RoleEnum
+from models import Notification as NotificationModel, User as UserModel, UserHotel as UserHotelModel, UserTeam as UserTeamModel, RoleEnum
 
 
 def create_notification(
@@ -30,8 +30,9 @@ def notify_all_staff(
     title: str,
     body: str = None,
     mural_post_id: int = None,
+    ticket_id: int = None,
 ):
-    """Notify all admin/agent users except the author."""
+    """Notify all admin/agent users except the actor."""
     staff = (
         db.query(UserModel)
         .filter(
@@ -41,7 +42,66 @@ def notify_all_staff(
         .all()
     )
     for u in staff:
-        create_notification(db, u.id, type, title, body, mural_post_id=mural_post_id)
+        create_notification(db, u.id, type, title, body, ticket_id=ticket_id, mural_post_id=mural_post_id)
+
+
+def notify_ticket_clients(
+    db: Session,
+    hotel_id: int,
+    exclude_user_id: int,
+    type: str,
+    title: str,
+    body: str = None,
+    ticket_id: int = None,
+):
+    """Notify all client_manager/client_receptionist linked to the hotel, except the actor."""
+    clients = (
+        db.query(UserModel)
+        .join(UserHotelModel, UserModel.id == UserHotelModel.user_id)
+        .filter(
+            UserHotelModel.hotel_id == hotel_id,
+            UserModel.role.in_([RoleEnum.client_manager, RoleEnum.client_receptionist]),
+            UserModel.id != exclude_user_id,
+        )
+        .all()
+    )
+    for u in clients:
+        create_notification(db, u.id, type, title, body, ticket_id=ticket_id)
+
+
+def notify_ticket_team(
+    db: Session,
+    team_id: int,
+    exclude_user_id: int,
+    type: str,
+    title: str,
+    body: str = None,
+    ticket_id: int = None,
+):
+    """Notify all admins + agents who belong to the given team, except the actor."""
+    admins = (
+        db.query(UserModel)
+        .filter(
+            UserModel.role == RoleEnum.admin,
+            UserModel.id != exclude_user_id,
+        )
+        .all()
+    )
+    agents = (
+        db.query(UserModel)
+        .join(UserTeamModel, UserModel.id == UserTeamModel.user_id)
+        .filter(
+            UserTeamModel.team_id == team_id,
+            UserModel.role == RoleEnum.agent,
+            UserModel.id != exclude_user_id,
+        )
+        .all()
+    )
+    seen = set()
+    for u in admins + agents:
+        if u.id not in seen:
+            seen.add(u.id)
+            create_notification(db, u.id, type, title, body, ticket_id=ticket_id)
 
 
 def extract_mentioned_users(text: str, db: Session, exclude_user_id: int = None):

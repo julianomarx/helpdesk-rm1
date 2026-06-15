@@ -223,10 +223,7 @@ def list_users_service(
 
         pass
 
-    elif current_user.role in (
-        RoleEnum.agent,
-        RoleEnum.client_manager
-    ):
+    elif current_user.role == RoleEnum.agent:
 
         accessible_hotels = (
             get_user_accessible_hotel_ids(
@@ -236,24 +233,35 @@ def list_users_service(
         )
 
         query = query.filter(
-
             UserModel.hotels.any(
-                HotelModel.id.in_(
-                    accessible_hotels
-                )
+                UserHotelModel.hotel_id.in_(accessible_hotels)
             )
-
         )
 
         query = query.filter(
-
             UserModel.role.in_(
                 [
                     RoleEnum.client_manager,
                     RoleEnum.client_receptionist
                 ]
             )
+        )
 
+    elif current_user.role == RoleEnum.client_manager:
+
+        accessible_hotels = get_user_accessible_hotel_ids(
+            current_user.id,
+            db
+        )
+
+        query = query.filter(
+            UserModel.hotels.any(
+                UserHotelModel.hotel_id.in_(accessible_hotels)
+            )
+        )
+
+        query = query.filter(
+            UserModel.role == RoleEnum.client_receptionist
         )
 
     else:
@@ -296,8 +304,8 @@ def list_users_service(
                 )
 
             )
-
         )
+        
 
     total = query.count()
 

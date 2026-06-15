@@ -14,7 +14,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.notification_service import create_notification
+from services.notification_service import create_notification, notify_all_staff, notify_ticket_clients, notify_ticket_team
 from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
 from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service, get_ticket_service      
 
@@ -32,10 +32,22 @@ def create_ticket(
     db: Session = Depends(get_db), 
     current_user: UserModel = Depends(get_current_user)
 ):
-    db_ticket = create_ticket_service(ticket, current_user, db)     
+    db_ticket = create_ticket_service(ticket, current_user, db)
+
+    if db_ticket.assigned_team_id:
+        notify_ticket_team(
+            db,
+            team_id=db_ticket.assigned_team_id,
+            exclude_user_id=current_user.id,
+            type="ticket_opened",
+            title=f"Novo chamado #{db_ticket.id} para o seu time",
+            body=f'"{db_ticket.title}"',
+            ticket_id=db_ticket.id,
+        )
+
     db.commit()
     db.refresh(db_ticket)
-    
+
     return db_ticket
 
 @router.get("/", response_model=TicketListOut)
@@ -120,16 +132,33 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db), current_user: User
 
 @router.put("/{ticket_id}", response_model=TicketOut)
 def update_ticket(
-    ticket_id: int, 
+    ticket_id: int,
     ticket_update: TicketUpdate,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
+    # Captura o estado antes da edição para detectar transições de progress
+    pre = db.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+    old_progress = pre.progress if pre else None
+
     ticket = ticket_edit_service(ticket_id, ticket_update, current_user, db)
-    
+
+    new_progress = ticket.progress
+    if old_progress != new_progress:
+        if new_progress == ProgressEnum.awaiting_confirmation.value:
+            notify_ticket_clients(
+                db,
+                hotel_id=ticket.hotel_id,
+                exclude_user_id=current_user.id,
+                type="awaiting_confirmation",
+                title=f"Chamado #{ticket.id} aguardando sua confirmação",
+                body=f'"{ticket.title}" está pronto — confirme o encerramento',
+                ticket_id=ticket.id,
+            )
+
     db.commit()
     db.refresh(ticket)
-    
+
     return ticket
 
 @router.put("/{ticket_id}/assign-team/{team_id}", response_model=TicketOut)
@@ -137,9 +166,19 @@ def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_d
     
     ticket = assign_ticket_team_service(ticket_id, team_id, current_user, db)
 
+    notify_ticket_team(
+        db,
+        team_id=team_id,
+        exclude_user_id=current_user.id,
+        type="ticket_transferred",
+        title=f"Chamado #{ticket.id} transferido para o seu time",
+        body=f'"{ticket.title}"',
+        ticket_id=ticket.id,
+    )
+
     db.commit()
     db.refresh(ticket)
-    
+
     return ticket
 
 @router.put("/{ticket_id}/subcategory", response_model=TicketOut)
@@ -189,12 +228,25 @@ def start_ticket(
 
 @router.put("/close-ticket/{ticket_id}", response_model=TicketOut)
 def close_ticket(
-    ticket_id: int, 
-    db: Session = Depends(get_db), 
+    ticket_id: int,
+    db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
     ticket = close_ticket_service(ticket_id, current_user, db)
-    return ticket    
+
+    # Cliente confirmou encerramento → notifica apenas o agente atribuído
+    if ticket.assigned_to and ticket.assigned_to != current_user.id:
+        create_notification(
+            db,
+            user_id=ticket.assigned_to,
+            type="ticket_confirmed_done",
+            title=f"Chamado #{ticket.id} confirmado pelo cliente",
+            body=f'"{ticket.title}" foi confirmado como resolvido',
+            ticket_id=ticket.id,
+        )
+    db.commit()
+
+    return ticket
 
 @router.put("/reopen-ticket/{ticket_id}", response_model=TicketOut)
 def reopen_ticket(
@@ -209,12 +261,24 @@ def reopen_ticket(
 
 @router.put("/return-ticket/{ticket_id}")
 def return_ticket(
-    ticket_id: int, 
+    ticket_id: int,
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
-):                 
-    
+):
     ticket = return_ticket_to_queue_service(ticket_id, current_user, db)
+
+    # Cliente rejeitou encerramento → notifica admins + agents do time do ticket
+    if ticket.assigned_team_id:
+        notify_ticket_team(
+            db,
+            team_id=ticket.assigned_team_id,
+            exclude_user_id=current_user.id,
+            type="ticket_returned_to_queue",
+            title=f"Chamado #{ticket.id} devolvido para a fila",
+            body=f'"{ticket.title}" foi rejeitado pelo cliente e voltou para atendimento',
+            ticket_id=ticket.id,
+        )
+    db.commit()
 
     return ticket
 
@@ -316,6 +380,19 @@ def schedule_visit(
         value=payload.scheduled_at.isoformat(),
     )
     db.add(log)
+
+    # Visita técnica agendada → notifica clientes do hotel
+    visit_label = payload.scheduled_at.strftime("%d/%m/%Y %H:%M")
+    notify_ticket_clients(
+        db,
+        hotel_id=ticket.hotel_id,
+        exclude_user_id=current_user.id,
+        type="scheduled_visit",
+        title=f"Visita técnica agendada no chamado #{ticket.id}",
+        body=f'"{ticket.title}" — visita agendada para {visit_label}',
+        ticket_id=ticket.id,
+    )
+
     db.commit()
     db.refresh(ticket)
     return ticket

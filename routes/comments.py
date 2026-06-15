@@ -19,7 +19,7 @@ from auth_utils import get_current_user
 
 from services.authorization import ensure_user_can_access_ticket
 from services.comment_service import create_comment_service
-from services.notification_service import create_notification, extract_mentioned_users
+from services.notification_service import create_notification, extract_mentioned_users, notify_all_staff, notify_ticket_clients
 
 router = APIRouter(
     prefix="/comments",
@@ -43,13 +43,28 @@ def create_comment(
         body = f"No chamado #{comment.ticket_id}: {comment.comment[:120]}"
         create_notification(db, user.id, "mention", title, body, comment.ticket_id)
 
-    # Notificação para agente responsável quando cliente comenta
-    if current_user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
-        ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
-        if ticket and ticket.assigned_to and ticket.assigned_to != current_user.id:
-            title = f"Resposta do cliente no chamado #{ticket.id}"
+    # Notificações cruzadas de comentário
+    ticket = db.query(TicketModel).filter(TicketModel.id == comment.ticket_id).first()
+    if ticket:
+        if current_user.role in [RoleEnum.client_manager, RoleEnum.client_receptionist]:
+            # Cliente comentou → notifica apenas o agente atribuído ao chamado
+            if ticket.assigned_to and ticket.assigned_to != current_user.id:
+                title = f"Resposta do cliente no chamado #{ticket.id}"
+                body = f"{current_user.name}: {comment.comment[:120]}"
+                create_notification(db, ticket.assigned_to, "client_reply", title, body, ticket.id)
+        elif current_user.role in [RoleEnum.admin, RoleEnum.agent]:
+            # Suporte comentou → notifica clientes vinculados ao hotel do ticket
+            title = f"Atualização no chamado #{ticket.id}"
             body = f"{current_user.name}: {comment.comment[:120]}"
-            create_notification(db, ticket.assigned_to, "client_reply", title, body, ticket.id)
+            notify_ticket_clients(
+                db,
+                hotel_id=ticket.hotel_id,
+                exclude_user_id=current_user.id,
+                type="staff_comment",
+                title=title,
+                body=body,
+                ticket_id=ticket.id,
+            )
 
     db.commit()
 

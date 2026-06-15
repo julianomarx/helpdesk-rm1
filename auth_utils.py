@@ -133,7 +133,6 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Gerenciar usuários", "page": "manage-users"}
         ],
         "client_manager": [
-            {"label": "Dashboard", "page": "dashboard"},
             {"label": "Meus chamados", "page": "tickets"},
             {"label": "Gerenciar usuários", "page": "manage-users"},
         ],

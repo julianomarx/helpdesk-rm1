@@ -2,7 +2,7 @@ from models import Ticket as TicketModel, User as UserModel, TicketLog as Ticket
 from models import TicketComment as CommentModel, Hotel as HotelModel
 from models import Category as CategoryModel, Team as TeamModel, SubCategory as SubCategoryModel
 from models import TicketSLA as TicketSLAModel, SLAPolicy as SLAPolicyModel
-from models import StatusEnum, ProgressEnum, PriorityEnum, LogActionEnum
+from models import StatusEnum, ProgressEnum, PriorityEnum, LogActionEnum, RoleEnum
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
@@ -203,12 +203,19 @@ def operational_dashboard_service(current_user, db):
 def productivity_dashboard_service(current_user, db):
     month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
+    # Conta quem enviou o ticket para awaiting_confirmation (o agente que resolveu),
+    # filtrando apenas tickets que foram de fato encerrados (status=closed).
+    # Tickets retornados para a fila não pontuam.
     closers = (
         db.query(UserModel.id, UserModel.name, func.count(TicketLogModel.id).label("count"))
         .join(TicketLogModel, UserModel.id == TicketLogModel.user_id)
+        .join(TicketModel, TicketModel.id == TicketLogModel.ticket_id)
         .filter(
-            TicketLogModel.action == LogActionEnum.ticket_closed.value,
-            TicketLogModel.created_at >= month_start
+            TicketLogModel.action == LogActionEnum.progress_changed.value,
+            TicketLogModel.value == str(ProgressEnum.awaiting_confirmation),
+            TicketLogModel.created_at >= month_start,
+            UserModel.role.in_([RoleEnum.admin, RoleEnum.agent]),
+            TicketModel.status == StatusEnum.closed,
         )
         .group_by(UserModel.id, UserModel.name)
         .order_by(func.count(TicketLogModel.id).desc())
@@ -218,7 +225,10 @@ def productivity_dashboard_service(current_user, db):
     commenters = (
         db.query(UserModel.id, UserModel.name, func.count(CommentModel.id).label("count"))
         .join(CommentModel, UserModel.id == CommentModel.user_id)
-        .filter(CommentModel.created_at >= month_start)
+        .filter(
+            CommentModel.created_at >= month_start,
+            UserModel.role.in_([RoleEnum.admin, RoleEnum.agent]),
+        )
         .group_by(UserModel.id, UserModel.name)
         .order_by(func.count(CommentModel.id).desc())
         .limit(10).all()
