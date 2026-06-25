@@ -18,3 +18,10 @@ venv/
 
 # Database
 *.sqlite3
+
+# Uploads gerados em runtime — armazenados fora do repositório em produção
+uploads/
+
+# Logs
+nohup.out
+*.log

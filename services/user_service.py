@@ -39,7 +39,8 @@ def create_user_service(
         name=new_user.name,
         email=new_user.email,
         password_hash=pwd_context.hash(new_user.password),
-        role=new_user.role
+        role=new_user.role,
+        phone=new_user.phone or None
     )
     
     db.add(created_user)

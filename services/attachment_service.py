@@ -5,8 +5,7 @@ from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from models import User as UserModel, Ticket as TicketModel, Attachment as AttachmentModel
 from services.authorization import ensure_user_can_access_ticket
-
-UPLOAD_DIR = "uploads/tickets"
+from config import TICKETS_DIR as UPLOAD_DIR
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 

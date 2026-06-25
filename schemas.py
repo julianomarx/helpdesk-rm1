@@ -103,21 +103,24 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: RoleEnum
-    
+    phone: Optional[str] = None
+
     hotel_ids: Optional[List[int]] = []
     team_ids: Optional[List[int]] = []
-    
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[RoleEnum] = None
+    phone: Optional[str] = None
 
 class User(BaseModel):
     id: int
     name: str
     email: EmailStr
     role: RoleEnum
+    phone: Optional[str] = None
     avatar_url: Optional[str] = None
 
     class Config:
@@ -126,6 +129,7 @@ class User(BaseModel):
 class UserBasic(BaseModel):
     id: int
     name: str
+    phone: Optional[str] = None
 
     class Config:
         from_attributes = True

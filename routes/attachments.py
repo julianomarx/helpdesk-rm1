@@ -11,10 +11,9 @@ from database import get_db
 from services.attachment_service import save_attachment_service
 from services.authorization import ensure_user_can_access_ticket
 from auth_utils import get_current_user
+from config import TICKETS_DIR as UPLOAD_DIR
 
 router = APIRouter(prefix="/tickets", tags=["attachments"])
-
-UPLOAD_DIR = "uploads/tickets"
 
 
 def _attachment_url(attachment: AttachmentModel) -> str:

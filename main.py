@@ -5,11 +5,15 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
-from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla, reports, notifications, todos, mural
+from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla, reports, notifications, todos, mural, qualitor
 
-from config import validate_env
+from config import validate_env, UPLOADS_DIR, AVATAR_DIR, TICKETS_DIR
 
 validate_env()
+
+# Garante que os diretórios de upload existem antes de montar o StaticFiles
+os.makedirs(AVATAR_DIR,  exist_ok=True)
+os.makedirs(TICKETS_DIR, exist_ok=True)
 
 from database import Base, engine
 
@@ -77,9 +81,10 @@ app.include_router(reports.router)
 app.include_router(notifications.router)
 app.include_router(todos.router)
 app.include_router(mural.router)
+app.include_router(qualitor.router)
 
-# Serve arquivos estáticos (ex: uploads)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Serve arquivos estáticos — aponta para diretório externo ao repositório
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # Rota root
 @app.get("/")

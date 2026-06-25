@@ -14,6 +14,7 @@ from auth_utils import get_current_user
 
 from services.user_service import create_user_service, update_user_hotels_service, list_users_service, get_user_service, update_user_service, delete_user_service, update_user_teams_service
 from services.authorization import ensure_admin
+from config import AVATAR_DIR
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -95,6 +96,8 @@ def get_user(
         "name": user.name,
         "email": user.email,
         "role": user.role,
+        "phone": user.phone,
+        "avatar_url": user.avatar_url,
         "hotels": [
             {
                 "id": uh.hotel.id,
@@ -150,7 +153,6 @@ def update_user_hotels(
 
     return {"message": "ok"}
 
-AVATAR_DIR = "uploads/avatars"
 ALLOWED_AVATAR_MIMES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
 ALLOWED_AVATAR_EXTS  = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_AVATAR_SIZE = 5 * 1024 * 1024  # 5 MB
