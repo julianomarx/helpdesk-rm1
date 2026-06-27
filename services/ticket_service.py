@@ -5,6 +5,7 @@ from math import ceil
 from models import TicketLog as TicketLogModel, LogActionEnum
 from models import Ticket as TicketModel, User as UserModel
 from models import Team as TeamModel, TicketSLA as TicketSLAModel
+from models import UserHotel as UserHotelModel, UserTeam as UserTeamModel
 
 from models import Category as CategoryModel, SubCategory as SubCategoryModel
 from models import Hotel as HotelModel
@@ -18,7 +19,7 @@ from services.authorization import ensure_can_assign_agent, ensure_user_can_acce
 from services.permissions import can_update_ticket_field
 
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import or_, cast, String
+from sqlalchemy import or_, cast, String, select
 
 def get_ticket_service(
     ticket_id: int,
@@ -202,30 +203,11 @@ def list_tickets_service(
     query = (
         db.query(TicketModel)
         .options(
-
-            selectinload(
-                TicketModel.hotel
-            ),
-
-            selectinload(
-                TicketModel.creator
-            ),
-
-            selectinload(
-                TicketModel.assignee
-            ),
-
-            selectinload(
-                TicketModel.assigned_team
-            ),
-
-            selectinload(
-                TicketModel.category
-            ),
-
-            selectinload(
-                TicketModel.subcategory
-            )
+            joinedload(TicketModel.hotel),
+            joinedload(TicketModel.creator),
+            joinedload(TicketModel.assigned_team),
+            joinedload(TicketModel.category),
+            joinedload(TicketModel.subcategory),
         )
     )
 
@@ -235,27 +217,12 @@ def list_tickets_service(
 
     elif current_user.role == RoleEnum.agent:
 
-        user_team_ids = (
-            get_user_accessible_team_ids(
-                current_user.id,
-                db
-            )
-        )
-
-        user_hotel_ids = (
-            get_user_accessible_hotel_ids(
-                current_user.id,
-                db
-            )
-        )
+        team_subq = select(UserTeamModel.team_id).where(UserTeamModel.user_id == current_user.id)
+        hotel_subq = select(UserHotelModel.hotel_id).where(UserHotelModel.user_id == current_user.id)
 
         query = query.filter(
-            TicketModel.assigned_team_id.in_(
-                user_team_ids
-            ),
-            TicketModel.hotel_id.in_(
-                user_hotel_ids
-            )
+            TicketModel.assigned_team_id.in_(team_subq),
+            TicketModel.hotel_id.in_(hotel_subq),
         )
 
     elif current_user.role in (
@@ -263,17 +230,10 @@ def list_tickets_service(
         RoleEnum.client_receptionist
     ):
 
-        user_hotel_ids = (
-            get_user_accessible_hotel_ids(
-                current_user.id,
-                db
-            )
-        )
+        hotel_subq = select(UserHotelModel.hotel_id).where(UserHotelModel.user_id == current_user.id)
 
         query = query.filter(
-            TicketModel.hotel_id.in_(
-                user_hotel_ids
-            )
+            TicketModel.hotel_id.in_(hotel_subq)
         )
 
     else:
@@ -357,20 +317,15 @@ def list_tickets_service(
             == subcategory_id
         )
 
-    total = query.count()
+    total = query.enable_eagerloads(False).count()
 
-    query = query.order_by(
-        TicketModel.created_at.desc()
+    tickets = (
+        query
+        .order_by(TicketModel.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
     )
-
-    #Paginação
-    query = query.offset(
-        (page - 1) * page_size
-    ).limit(
-        page_size
-    )
-
-    tickets = query.all()
 
     return {
 

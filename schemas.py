@@ -329,9 +329,19 @@ class TicketOut(Ticket):
     subcategory: Optional[SubCategory] = None
     sla: Optional[TicketSLAOut] = None
 
+class TicketListItem(Ticket):
+    hotel: Hotel
+    creator: UserBasic
+    assigned_team: Optional[Team] = None
+    category: Optional[Category] = None
+    subcategory: Optional[SubCategory] = None
+
+    class Config:
+        from_attributes = True
+
 class TicketListOut(BaseModel):
 
-    items: list[TicketOut]
+    items: list[TicketListItem]
     total: int
     page: int
     page_size: int
