@@ -89,6 +89,18 @@ async def qualitor_refresh_ticket(ticket_id: int, _=Depends(get_current_user)):
     return await _proxy_post(f"/qualitor/tickets/{ticket_id}/refresh", {})
 
 
+@router.get("/teams")
+async def qualitor_teams(_=Depends(get_current_user)):
+    return await _proxy_get("/qualitor/teams")
+
+
+@router.post("/tickets/{ticket_id}/transfer")
+async def qualitor_transfer_ticket(ticket_id: int, request: Request, user=Depends(get_current_user)):
+    body = await request.json()
+    body["tecnico"] = user.name
+    return await _proxy_post(f"/qualitor/tickets/{ticket_id}/transfer", body)
+
+
 @router.post("/tickets/{ticket_id}/history")
 async def qualitor_add_history(ticket_id: int, request: Request, _=Depends(get_current_user)):
     return await _proxy_post(f"/qualitor/tickets/{ticket_id}/history", await request.json())
