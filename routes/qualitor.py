@@ -107,6 +107,14 @@ async def qualitor_add_history(ticket_id: int, request: Request, _=Depends(get_c
     return await _proxy_post(f"/qualitor/tickets/{ticket_id}/history", await request.json())
 
 
+@router.post("/tickets/{ticket_id}/assign-interno")
+async def qualitor_assign_interno(ticket_id: int, request: Request, user=Depends(get_current_user)):
+    body = await request.json()
+    body["user_id"]   = body.get("user_id") or user.id
+    body["user_nome"] = body.get("user_nome") or user.name
+    return await _proxy_post(f"/qualitor/tickets/{ticket_id}/assign-interno", body)
+
+
 @router.get("/tickets/{ticket_id}/attachments")
 async def qualitor_list_attachments(ticket_id: int, _=Depends(get_current_user)):
     return await _proxy_get(f"/qualitor/tickets/{ticket_id}/attachments")
