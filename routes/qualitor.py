@@ -1,6 +1,7 @@
 import os
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
+from fastapi.responses import Response
 from typing import Optional
 
 from auth_utils import get_current_user
@@ -104,3 +105,60 @@ async def qualitor_transfer_ticket(ticket_id: int, request: Request, user=Depend
 @router.post("/tickets/{ticket_id}/history")
 async def qualitor_add_history(ticket_id: int, request: Request, _=Depends(get_current_user)):
     return await _proxy_post(f"/qualitor/tickets/{ticket_id}/history", await request.json())
+
+
+@router.get("/tickets/{ticket_id}/attachments")
+async def qualitor_list_attachments(ticket_id: int, _=Depends(get_current_user)):
+    return await _proxy_get(f"/qualitor/tickets/{ticket_id}/attachments")
+
+
+@router.get("/tickets/{ticket_id}/attachments/{nrsequencia}/download")
+async def qualitor_download_attachment(
+    ticket_id: int,
+    nrsequencia: int,
+    nmanexo: str = Query(...),
+    cdclassificacao: str = Query(""),
+    _=Depends(get_current_user),
+):
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.get(
+                f"{QUALITOR_API_URL}/qualitor/tickets/{ticket_id}/attachments/{nrsequencia}/download",
+                params={"nmanexo": nmanexo, "cdclassificacao": cdclassificacao},
+            )
+            r.raise_for_status()
+            return Response(
+                content=r.content,
+                media_type=r.headers.get("content-type", "application/octet-stream"),
+                headers={"Content-Disposition": r.headers.get("content-disposition", "")},
+            )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Erro ao baixar anexo")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="API Qualitor indisponível")
+
+
+@router.post("/tickets/{ticket_id}/attachments")
+async def qualitor_upload_attachment(
+    ticket_id: int,
+    file: UploadFile = File(...),
+    _=Depends(get_current_user),
+):
+    content = await file.read()
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            r = await client.post(
+                f"{QUALITOR_API_URL}/qualitor/tickets/{ticket_id}/attachments",
+                files={"file": (file.filename, content, file.content_type or "application/octet-stream")},
+            )
+            r.raise_for_status()
+            return r.json()
+    except httpx.HTTPStatusError as e:
+        detail = "Erro ao fazer upload"
+        try:
+            detail = e.response.json().get("detail", detail)
+        except Exception:
+            pass
+        raise HTTPException(status_code=e.response.status_code, detail=detail)
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="API Qualitor indisponível")
