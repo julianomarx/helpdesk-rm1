@@ -145,8 +145,26 @@ async def qualitor_close_ticket(ticket_id: int, request: Request, user=Depends(e
 
 
 @router.post("/tickets/{ticket_id}/refresh")
-async def qualitor_refresh_ticket(ticket_id: int, _=Depends(ensure_qualitor_access)):
-    return await _proxy_post(f"/qualitor/tickets/{ticket_id}/refresh", {})
+async def qualitor_refresh_ticket(
+    ticket_id: int,
+    _: UserModel = Depends(ensure_qualitor_access),
+    db: Session = Depends(get_db),
+):
+    data = await _proxy_post(f"/qualitor/tickets/{ticket_id}/refresh", {})
+
+    # Notifica o responsável interno quando o cliente confirma o encerramento
+    if data.get("confirmed_closed") and data.get("responsavel_interno_id"):
+        create_notification(
+            db,
+            user_id=data["responsavel_interno_id"],
+            type="ticket_closed",
+            title=f"Chamado Qualitor #{ticket_id} encerrado pelo cliente",
+            body=f"O cliente confirmou o encerramento do chamado #{ticket_id}.",
+            qualitor_ticket_id=ticket_id,
+        )
+        db.commit()
+
+    return data
 
 
 @router.get("/teams")
@@ -219,6 +237,43 @@ async def qualitor_assign_interno(
         db.commit()
 
     return result
+
+
+@router.post("/tickets/{ticket_id}/schedule-visit")
+async def qualitor_schedule_visit(
+    ticket_id: int,
+    request: Request,
+    user: UserModel = Depends(ensure_qualitor_access),
+):
+    body = await request.json()
+    body.setdefault("interno_user_id", user.id)
+    body.setdefault("interno_user_nome", user.name)
+    return await _proxy_post(f"/qualitor/tickets/{ticket_id}/schedule-visit", body)
+
+
+@router.get("/reports/activity")
+async def qualitor_reports_activity(
+    interno_user_id: int = Query(...),
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    current_user: UserModel = Depends(ensure_qualitor_access),
+    db: Session = Depends(get_db),
+):
+    params = {
+        "interno_user_id": interno_user_id,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+    data = await _proxy_get("/qualitor/reports/activity", params)
+
+    # Enriquece o campo agent com name/email/role do DB do helpdesk
+    agent_user = db.query(UserModel).filter(UserModel.id == interno_user_id).first()
+    if agent_user and isinstance(data, dict) and "agent" in data:
+        data["agent"]["name"]  = agent_user.name
+        data["agent"]["email"] = agent_user.email
+        data["agent"]["role"]  = agent_user.role
+
+    return data
 
 
 @router.get("/tickets/{ticket_id}/attachments")
