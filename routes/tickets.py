@@ -14,7 +14,7 @@ from models import RoleEnum
 from services.permissions import can_update_ticket_field
 from services.authorization import ensure_can_assign_agent, ensure_user_can_access_ticket
 from services.ticket_service import assign_agent_to_ticket, ensure_agent_belongs_to_ticket_assigned_team
-from services.notification_service import create_notification, notify_all_staff, notify_ticket_clients, notify_ticket_team
+from services.notification_service import create_notification, notify_ticket_clients, notify_ticket_team
 from services.ticket_service import start_ticket_service, create_ticket_service, list_tickets_service, ticket_edit_service, assign_ticket_team_service, cancel_ticket_service
 from services.ticket_service import  close_ticket_service, update_ticket_subcategory_service, reopen_ticket_service, return_ticket_to_queue_service, get_ticket_service      
 
@@ -33,21 +33,8 @@ def create_ticket(
     current_user: UserModel = Depends(get_current_user)
 ):
     db_ticket = create_ticket_service(ticket, current_user, db)
-
-    if db_ticket.assigned_team_id:
-        notify_ticket_team(
-            db,
-            team_id=db_ticket.assigned_team_id,
-            exclude_user_id=current_user.id,
-            type="ticket_opened",
-            title=f"Novo chamado #{db_ticket.id} para o seu time",
-            body=f'"{db_ticket.title}"',
-            ticket_id=db_ticket.id,
-        )
-
     db.commit()
     db.refresh(db_ticket)
-
     return db_ticket
 
 @router.get("/", response_model=TicketListOut)
@@ -95,6 +82,10 @@ def list_tickets(
         default=None
     ),
 
+    mine: bool = Query(
+        default=False
+    ),
+
     db: Session = Depends(get_db),
 
     current_user: UserModel = Depends(
@@ -120,7 +111,9 @@ def list_tickets(
         category_id=category_id,
         subcategory_id=subcategory_id,
 
-        hotel_id=hotel_id
+        hotel_id=hotel_id,
+
+        mine=mine
     )
 
 @router.get("/{ticket_id}", response_model=TicketWithComments)
@@ -165,20 +158,8 @@ def update_ticket(
 def assign_ticket_team(ticket_id: int, team_id: int, db: Session = Depends(get_db), current_user: UserModel = Depends(get_current_user)):
     
     ticket = assign_ticket_team_service(ticket_id, team_id, current_user, db)
-
-    notify_ticket_team(
-        db,
-        team_id=team_id,
-        exclude_user_id=current_user.id,
-        type="ticket_transferred",
-        title=f"Chamado #{ticket.id} transferido para o seu time",
-        body=f'"{ticket.title}"',
-        ticket_id=ticket.id,
-    )
-
     db.commit()
     db.refresh(ticket)
-
     return ticket
 
 @router.put("/{ticket_id}/subcategory", response_model=TicketOut)

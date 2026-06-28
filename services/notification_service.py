@@ -11,6 +11,7 @@ def create_notification(
     body: str = None,
     ticket_id: int = None,
     mural_post_id: int = None,
+    qualitor_ticket_id: int = None,
 ):
     notif = NotificationModel(
         user_id=user_id,
@@ -19,6 +20,7 @@ def create_notification(
         body=body,
         ticket_id=ticket_id,
         mural_post_id=mural_post_id,
+        qualitor_ticket_id=qualitor_ticket_id,
     )
     db.add(notif)
 

@@ -14,7 +14,10 @@ from database import get_db
 from models import User as UserModel, Ticket as TicketModel
 from models import Hotel as HotelModel
 from models import UserHotel as UserHotelModel
-from models import Team as TeamModel, Category as CategoryModel, SubCategory as SubCategoryModel
+from models import Team as TeamModel, UserTeam as UserTeamModel, Category as CategoryModel, SubCategory as SubCategoryModel
+
+# Times que existem só para controle de acesso ao Qualitor — não afetam chamados do helpdesk
+QUALITOR_TEAM_NAMES = {"RM1", "RM1 SAP", "ATRIO - SISTEMAS"}
 from schemas import User
 from models import RoleEnum
 
@@ -98,10 +101,20 @@ def create_access_token(user: UserModel, db: Session) -> str:
         {"id": h.id, "code": h.code, "name": h.name} for h in user_hotels_query
     ]
 
-    teams = [
-        {"id": t.id, "name": t.name}
-        for t in db.query(TeamModel.id, TeamModel.name).order_by(TeamModel.id).all()
-    ]
+    # Times do próprio usuário (não todos os times do sistema)
+    user_team_rows = (
+        db.query(TeamModel.id, TeamModel.name)
+        .join(UserTeamModel, UserTeamModel.team_id == TeamModel.id)
+        .filter(UserTeamModel.user_id == user.id)
+        .all()
+    )
+    # Separa times de helpdesk (usados no filtro de chamados) dos times exclusivos do Qualitor
+    teams = [{"id": t.id, "name": t.name} for t in user_team_rows if t.name not in QUALITOR_TEAM_NAMES]
+    user_qualitor_teams = [t.name for t in user_team_rows if t.name in QUALITOR_TEAM_NAMES]
+
+    # Admin vê todos os times Qualitor sem precisar ser membro; agentes só veem os seus
+    has_qualitor_access = (user.role == "admin") or bool(user_qualitor_teams)
+    qualitor_teams = sorted(QUALITOR_TEAM_NAMES) if user.role == "admin" else user_qualitor_teams
 
     categories = [
         {"id": c.id, "name": c.name, "team_id": c.team_id}
@@ -114,12 +127,14 @@ def create_access_token(user: UserModel, db: Session) -> str:
     ]
 
 
+    qualitor_menu = [{"label": "Qualitor", "page": "qualitor"}] if has_qualitor_access else []
+
     role_menus = {
         "admin": [
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Análise", "page": "analytics"},
             {"label": "Chamados", "page": "tickets"},
-            {"label": "Qualitor", "page": "qualitor"},
+            *qualitor_menu,
             {"label": "Mural", "page": "mural"},
             {"label": "Equipes", "page": "teams"},
             {"label": "Gerenciar usuários", "page": "manage-users"},
@@ -131,10 +146,10 @@ def create_access_token(user: UserModel, db: Session) -> str:
             {"label": "Dashboard", "page": "dashboard"},
             {"label": "Análise", "page": "analytics"},
             {"label": "Chamados", "page": "tickets"},
-            {"label": "Qualitor", "page": "qualitor"},
+            *qualitor_menu,
             {"label": "Mural", "page": "mural"},
             {"label": "Equipes", "page": "teams"},
-            {"label": "Gerenciar usuários", "page": "manage-users"}
+            {"label": "Gerenciar usuários", "page": "manage-users"},
         ],
         "client_manager": [
             {"label": "Meus chamados", "page": "tickets"},
@@ -155,6 +170,7 @@ def create_access_token(user: UserModel, db: Session) -> str:
         "exp": expire,
         "hotels": user_hotels,
         "teams": teams,
+        "qualitor_teams": qualitor_teams,
         "categories": categories,
         "subcategories": subcategories,
         "menus": role_menus.get(user.role, [])

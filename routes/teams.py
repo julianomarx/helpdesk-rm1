@@ -70,22 +70,41 @@ def add_user_to_team(
 
 
 
+@router.delete("/{team_id}/remove-user/{user_id}")
+def remove_user_from_team(
+    team_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(ensure_admin),
+):
+    link = (
+        db.query(UserTeamModel)
+        .filter(UserTeamModel.team_id == team_id, UserTeamModel.user_id == user_id)
+        .first()
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Membro não encontrado na equipe")
+    db.delete(link)
+    db.commit()
+    return {"message": "User removed from team"}
+
+
 @router.delete("/{team_id}")
 def delete_team(
-    team_id: int, 
+    team_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(ensure_admin)
 ):
-    
+
     team = db.query(TeamModel).filter(TeamModel.id == team_id).first()
-    
+
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    
+
     db.delete(team)
-    
+
     db.commit()
-    
+
     return { "message": f"Team - {team_id} - deleted" }
 
 @router.get("/{team_id}/users/", response_model=List[User])

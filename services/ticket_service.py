@@ -197,7 +197,9 @@ def list_tickets_service(
     category_id: int | None = None,
     subcategory_id: int | None = None,
 
-    hotel_id: int | None = None
+    hotel_id: int | None = None,
+
+    mine: bool = False
 ):
 
     query = (
@@ -217,7 +219,16 @@ def list_tickets_service(
 
     elif current_user.role == RoleEnum.agent:
 
-        team_subq = select(UserTeamModel.team_id).where(UserTeamModel.user_id == current_user.id)
+        # Times exclusivos do Qualitor não afetam a visibilidade de chamados do helpdesk
+        _QUALITOR_ONLY_TEAMS = {"RM1", "RM1 SAP"}
+        team_subq = (
+            select(UserTeamModel.team_id)
+            .join(TeamModel, TeamModel.id == UserTeamModel.team_id)
+            .where(
+                UserTeamModel.user_id == current_user.id,
+                TeamModel.name.notin_(_QUALITOR_ONLY_TEAMS),
+            )
+        )
         hotel_subq = select(UserHotelModel.hotel_id).where(UserHotelModel.user_id == current_user.id)
 
         query = query.filter(
@@ -315,6 +326,12 @@ def list_tickets_service(
         query = query.filter(
             TicketModel.subcategory_id
             == subcategory_id
+        )
+
+    if mine:
+
+        query = query.filter(
+            TicketModel.assigned_to == current_user.id
         )
 
     total = query.enable_eagerloads(False).count()

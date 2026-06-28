@@ -296,6 +296,7 @@ class Notification(Base):
     body = Column(Text, nullable=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=True)
     mural_post_id = Column(Integer, ForeignKey("mural_posts.id", ondelete="SET NULL"), nullable=True)
+    qualitor_ticket_id = Column(Integer, nullable=True)
     read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

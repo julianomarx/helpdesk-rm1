@@ -192,6 +192,7 @@ def _hd_top_tech(period: str, db: Session) -> dict:
         SELECT u.name AS nome, COUNT(*) AS total
         FROM ticket_comments c JOIN users u ON u.id = c.user_id
         WHERE c.created_at >= NOW() - INTERVAL {days} DAY
+        AND u.role NOT IN ('client_manager', 'client_receptionist')
         GROUP BY u.name ORDER BY total DESC LIMIT 10
     """)).fetchall()
     carga_atual = db.execute(text("""
