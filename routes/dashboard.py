@@ -387,7 +387,7 @@ async def unified_by_team(
 async def unified_stalled(
     source: str = Query("all"),
     days: int = Query(5),
-    limit: int = Query(25, ge=5, le=100),
+    limit: int = Query(25, ge=5, le=500),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
