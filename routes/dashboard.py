@@ -220,7 +220,7 @@ def _hd_by_team(period: str, db: Session) -> dict:
     return {"equipes": [{"equipe": r.equipe, "abertos": r.abertos, "fechados": r.fechados} for r in rows]}
 
 
-def _hd_stalled(days_stalled: int, db: Session) -> dict:
+def _hd_stalled(days_stalled: int, db: Session, limit: int = 25) -> dict:
     rows = db.execute(text(f"""
         SELECT t.id, t.title AS titulo, tm.name AS equipe, t.status AS situacao,
           u.name AS responsavel, t.created_at AS dtabertura,
@@ -232,7 +232,7 @@ def _hd_stalled(days_stalled: int, db: Session) -> dict:
         WHERE t.status = 'open'
         GROUP BY t.id
         HAVING ultimo_acomp IS NULL OR ultimo_acomp < NOW() - INTERVAL {days_stalled} DAY
-        ORDER BY ultimo_acomp ASC LIMIT 50
+        ORDER BY ultimo_acomp ASC LIMIT {limit}
     """)).fetchall()
     return {"tickets": [
         {"id": r.id, "titulo": r.titulo, "equipe": r.equipe, "situacao": r.situacao,
@@ -384,16 +384,17 @@ async def unified_by_team(
 async def unified_stalled(
     source: str = Query("all"),
     days: int = Query(5),
+    limit: int = Query(25, ge=5, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     hd_tickets, qt_tickets = [], []
     if source in ("helpdesk", "all"):
-        hd_tickets = _hd_stalled(days, db).get("tickets", [])
+        hd_tickets = _hd_stalled(days, db, limit=limit).get("tickets", [])
         for t in hd_tickets:
             t["portal"] = "helpdesk"
     if source in ("qualitor", "all"):
-        qt_data = await _qualitor_stats("stalled", {"days": days})
+        qt_data = await _qualitor_stats("stalled", {"days": days, "limit": limit})
         qt_tickets = qt_data.get("tickets", [])
         for t in qt_tickets:
             t["portal"] = "qualitor"
@@ -402,7 +403,7 @@ async def unified_stalled(
         hd_tickets + qt_tickets,
         key=lambda x: (x.get("ultimo_acomp") or "0000"),
     )
-    return {"tickets": all_tickets, "days": days, "source": source}
+    return {"tickets": all_tickets, "total": len(all_tickets), "days": days, "source": source}
 
 
 @router.get("/unified/sla")
