@@ -1,10 +1,7 @@
 from models import Ticket as TicketModel, User as UserModel, TicketLog as TicketLogModel
-from models import TicketComment as CommentModel, Hotel as HotelModel
-from models import Category as CategoryModel, Team as TeamModel, SubCategory as SubCategoryModel
-from models import TicketSLA as TicketSLAModel, SLAPolicy as SLAPolicyModel
+from models import TicketComment as CommentModel
 from models import StatusEnum, ProgressEnum, PriorityEnum, LogActionEnum, RoleEnum
 from datetime import datetime, timezone, timedelta
-from collections import defaultdict
 
 from sqlalchemy.sql import func
 from sqlalchemy.orm import joinedload
@@ -15,107 +12,32 @@ def dashboard_overview_service(
     current_user,
     db
 ):
-    today = datetime.now(timezone.utc).date()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
-    
-    open_tickets = (
-        db.query(TicketModel)
-        .filter(TicketModel.status == StatusEnum.open)
-        .count()
-    )
-
-    in_progress_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.progress == ProgressEnum.in_progress,
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
-
-    feedback_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.progress == ProgressEnum.feedback,
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
-
-    awaiting_confirmation_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.progress == ProgressEnum.awaiting_confirmation,
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
-
-    unassigned_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.assigned_to.is_(None),
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
-
-    high_priority_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.priority == PriorityEnum.high,
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
-
-    created_today_tickets = (
-        db.query(TicketModel)
-        .filter(
-            func.date(TicketModel.created_at) == today
-        )
-        .count()
-    )
-
-    stale_48h_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.status == StatusEnum.open,
-            TicketModel.updated_at < cutoff
-        )
-        .count()
-    )
-
-    closed_today_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.status == StatusEnum.closed,
-            func.date(TicketModel.updated_at) == today
-        )
-        .count()
-    )
-
-    scheduled_visit_tickets = (
-        db.query(TicketModel)
-        .filter(
-            TicketModel.progress == ProgressEnum.scheduled_visit,
-            TicketModel.status == StatusEnum.open
-        )
-        .count()
-    )
+    row = db.execute(text("""
+        SELECT
+          SUM(status = 'open')                                                   AS open_tickets,
+          SUM(status = 'open' AND progress = 'in_progress')                     AS in_progress_tickets,
+          SUM(status = 'open' AND progress = 'feedback')                         AS feedback_tickets,
+          SUM(status = 'open' AND progress = 'awaiting_confirmation')            AS awaiting_confirmation_tickets,
+          SUM(status = 'open' AND assigned_to IS NULL)                           AS unassigned_tickets,
+          SUM(status = 'open' AND priority = 'high')                             AS high_priority_tickets,
+          SUM(DATE(created_at) = CURDATE())                                      AS created_today_tickets,
+          SUM(status = 'open' AND updated_at < NOW() - INTERVAL 48 HOUR)        AS stale_48h_tickets,
+          SUM(status = 'closed' AND DATE(updated_at) = CURDATE())                AS closed_today_tickets,
+          SUM(status = 'open' AND progress = 'scheduled_visit')                  AS scheduled_visit_tickets
+        FROM tickets
+    """)).fetchone()
 
     return {
-        "open_tickets": open_tickets,
-        "in_progress_tickets": in_progress_tickets,
-        "feedback_tickets": feedback_tickets,
-        "awaiting_confirmation_tickets": awaiting_confirmation_tickets,
-
-        "unassigned_tickets": unassigned_tickets,
-        "stale_48h_tickets": stale_48h_tickets,
-        "high_priority_tickets": high_priority_tickets,
-        "created_today_tickets": created_today_tickets,
-        "closed_today_tickets": closed_today_tickets,
-        "scheduled_visit_tickets": scheduled_visit_tickets,
+        "open_tickets":                   int(row.open_tickets or 0),
+        "in_progress_tickets":            int(row.in_progress_tickets or 0),
+        "feedback_tickets":               int(row.feedback_tickets or 0),
+        "awaiting_confirmation_tickets":  int(row.awaiting_confirmation_tickets or 0),
+        "unassigned_tickets":             int(row.unassigned_tickets or 0),
+        "stale_48h_tickets":              int(row.stale_48h_tickets or 0),
+        "high_priority_tickets":          int(row.high_priority_tickets or 0),
+        "created_today_tickets":          int(row.created_today_tickets or 0),
+        "closed_today_tickets":           int(row.closed_today_tickets or 0),
+        "scheduled_visit_tickets":        int(row.scheduled_visit_tickets or 0),
     }
 
 
@@ -334,157 +256,192 @@ def volume_dashboard_service(current_user, db):
 
 def sla_dashboard_service(current_user, db):
     now = datetime.now(timezone.utc)
-    AT_RISK_HOURS = 8  # considera "em risco" quem vence nas próximas 8h
+    AT_RISK_HOURS = 8
 
-    records = (
-        db.query(TicketSLAModel)
-        .join(TicketModel, TicketSLAModel.ticket_id == TicketModel.id)
-        .options(
-            joinedload(TicketSLAModel.ticket).joinedload(TicketModel.hotel),
-            joinedload(TicketSLAModel.ticket).joinedload(TicketModel.assigned_team),
-            joinedload(TicketSLAModel.policy),
-        )
-        .filter(TicketModel.status != StatusEnum.cancelled)
-        .all()
-    )
+    # ── Agregações globais via SQL ────────────────────────────────────
+    summary_row = db.execute(text("""
+        SELECT
+          COUNT(*)                                                                          AS total_with_sla,
+          SUM(ts.resolution_breached = 0 AND ts.resolution_met_at IS NULL
+              AND t.status = 'open')                                                       AS active_sla,
+          SUM(ts.resolution_breached = 1 AND t.status = 'open')                           AS resolution_breached_open,
+          SUM(ts.resolution_breached = 1)                                                  AS resolved_breached,
+          SUM(ts.resolution_met_at IS NOT NULL AND ts.resolution_breached = 0)            AS resolved_compliant,
+          AVG(CASE WHEN ts.response_met_at IS NOT NULL
+                   THEN TIMESTAMPDIFF(SECOND, ts.started_at, ts.response_met_at) / 3600.0
+              END)                                                                          AS avg_response_hours
+        FROM ticket_sla ts
+        JOIN tickets t ON t.id = ts.ticket_id
+        WHERE t.status != 'cancelled'
+    """)).fetchone()
 
-    def eff_deadline(r):
+    total_resolved = int(summary_row.resolved_compliant or 0) + int(summary_row.resolved_breached or 0)
+    overall_pct = round(int(summary_row.resolved_compliant or 0) / total_resolved * 100, 1) if total_resolved else 0.0
+
+    # ── Agregação por equipe via SQL ──────────────────────────────────
+    team_rows = db.execute(text("""
+        SELECT
+          COALESCE(tm.name, 'Sem equipe')                                                 AS team_name,
+          COUNT(*)                                                                          AS total,
+          SUM(ts.resolution_breached = 0 AND ts.resolution_met_at IS NOT NULL)            AS compliant,
+          SUM(ts.resolution_breached = 1)                                                  AS breached,
+          AVG(CASE WHEN ts.response_met_at IS NOT NULL
+                   THEN TIMESTAMPDIFF(SECOND, ts.started_at, ts.response_met_at) / 3600.0
+              END)                                                                          AS avg_response_hours
+        FROM ticket_sla ts
+        JOIN tickets t ON t.id = ts.ticket_id
+        LEFT JOIN teams tm ON tm.id = t.assigned_team_id
+        WHERE t.status != 'cancelled'
+        GROUP BY tm.id, tm.name
+        ORDER BY total DESC
+    """)).fetchall()
+
+    by_team = []
+    for r in team_rows:
+        c = int(r.compliant or 0)
+        b = int(r.breached or 0)
+        resolved = c + b
+        pct = round(c / resolved * 100, 1) if resolved else 0.0
+        by_team.append({
+            "team_name": r.team_name,
+            "total": int(r.total or 0),
+            "compliant": c,
+            "breached": b,
+            "compliance_pct": pct,
+            "avg_response_hours": round(float(r.avg_response_hours), 2) if r.avg_response_hours else None,
+        })
+
+    # ── Agregação por política via SQL ────────────────────────────────
+    policy_rows = db.execute(text("""
+        SELECT
+          COALESCE(sp.name, 'Sem política')                                                AS policy_name,
+          COALESCE(sp.priority, 'low')                                                     AS priority,
+          COUNT(*)                                                                          AS total,
+          SUM(ts.resolution_breached = 0 AND ts.resolution_met_at IS NOT NULL)            AS compliant,
+          SUM(ts.resolution_breached = 1)                                                  AS breached
+        FROM ticket_sla ts
+        JOIN tickets t ON t.id = ts.ticket_id
+        LEFT JOIN sla_policies sp ON sp.id = ts.policy_id
+        WHERE t.status != 'cancelled'
+        GROUP BY sp.id, sp.name, sp.priority
+        ORDER BY total DESC
+    """)).fetchall()
+
+    by_policy = []
+    for r in policy_rows:
+        c = int(r.compliant or 0)
+        b = int(r.breached or 0)
+        resolved = c + b
+        pct = round(c / resolved * 100, 1) if resolved else 0.0
+        by_policy.append({
+            "policy_name": r.policy_name,
+            "priority": r.priority,
+            "total": int(r.total or 0),
+            "compliant": c,
+            "breached": b,
+            "compliance_pct": pct,
+        })
+
+    # ── Tickets em risco: candidatos via SQL, deadline efetivo em Python ─
+    # Filtro conservador: deadline bruto dentro de (8h + margem pausa razoável).
+    # Só carregamos candidatos (~dezenas), não todos os registros.
+    AT_RISK_MARGIN_HOURS = AT_RISK_HOURS + 24  # margem para pausa acumulada
+    candidate_rows = db.execute(text(f"""
+        SELECT ts.ticket_id, ts.resolution_deadline, ts.total_paused_seconds, ts.paused_at,
+               ts.resolution_breached, ts.resolution_met_at,
+               t.title, t.priority, t.status,
+               COALESCE(h.name, '') AS hotel_name,
+               COALESCE(tm.name, 'Sem equipe') AS team_name,
+               COALESCE(sp.name, 'Sem política') AS policy_name
+        FROM ticket_sla ts
+        JOIN tickets t ON t.id = ts.ticket_id
+        LEFT JOIN hotels h ON h.id = t.hotel_id
+        LEFT JOIN teams tm ON tm.id = t.assigned_team_id
+        LEFT JOIN sla_policies sp ON sp.id = ts.policy_id
+        WHERE t.status = 'open'
+          AND ts.resolution_met_at IS NULL
+          AND ts.resolution_deadline <= NOW() + INTERVAL {AT_RISK_MARGIN_HOURS} HOUR
+        ORDER BY ts.resolution_deadline ASC
+        LIMIT 100
+    """)).fetchall()
+
+    # Recalcula deadline efetivo (incluindo pausa ativa) em Python apenas para estes candidatos
+    at_risk_list = []
+    for r in candidate_rows:
         dl = r.resolution_deadline
         if dl.tzinfo is None:
             dl = dl.replace(tzinfo=timezone.utc)
-        extra = r.total_paused_seconds
+        extra = r.total_paused_seconds or 0
         if r.paused_at:
             p = r.paused_at if r.paused_at.tzinfo else r.paused_at.replace(tzinfo=timezone.utc)
             extra += max(0, int((now - p).total_seconds()))
-        return dl + timedelta(seconds=extra)
-
-    def eff_response_deadline(r):
-        dl = r.response_deadline
-        if dl.tzinfo is None:
-            dl = dl.replace(tzinfo=timezone.utc)
-        extra = r.total_paused_seconds
-        if r.paused_at:
-            p = r.paused_at if r.paused_at.tzinfo else r.paused_at.replace(tzinfo=timezone.utc)
-            extra += max(0, int((now - p).total_seconds()))
-        return dl + timedelta(seconds=extra)
-
-    # ── Contadores globais ────────────────────────────────────────────
-    total_with_sla = len(records)
-    active_sla = 0
-    at_risk = 0
-    resolution_breached_open = 0
-    resolved_compliant = 0
-    resolved_breached = 0
-    response_hours_list = []
-
-    # ── Por equipe ────────────────────────────────────────────────────
-    teams: dict[str, dict] = defaultdict(lambda: {"total": 0, "compliant": 0, "breached": 0, "response_hours": []})
-
-    # ── Por política ──────────────────────────────────────────────────
-    policies: dict[str, dict] = defaultdict(lambda: {"priority": "", "total": 0, "compliant": 0, "breached": 0})
-
-    # ── Listas detalhadas ─────────────────────────────────────────────
-    at_risk_list = []
-    breached_open_list = []
-
-    for r in records:
-        ticket = r.ticket
-        team_name = ticket.assigned_team.name if ticket.assigned_team else "Sem equipe"
-        policy_name = r.policy.name if r.policy else "Sem política"
-        policy_priority = (r.policy.priority.value if hasattr(r.policy.priority, "value") else r.policy.priority) if r.policy else "low"
-        hotel_name = ticket.hotel.name if ticket.hotel else ""
-        priority_val = ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority
-
-        eff_dl = eff_deadline(r)
+        eff_dl = dl + timedelta(seconds=extra)
         hours_diff = (eff_dl - now).total_seconds() / 3600
 
-        # Primeira resposta
-        if r.response_met_at:
-            resp_met = r.response_met_at if r.response_met_at.tzinfo else r.response_met_at.replace(tzinfo=timezone.utc)
-            started = r.started_at if r.started_at.tzinfo else r.started_at.replace(tzinfo=timezone.utc)
-            response_h = (resp_met - started).total_seconds() / 3600
-            response_hours_list.append(response_h)
-            teams[team_name]["response_hours"].append(response_h)
-
-        # Classificação de compliance
-        is_resolved = r.resolution_met_at is not None
-        is_open = ticket.status == StatusEnum.open or ticket.status == StatusEnum.open.value
-
         if r.resolution_breached:
-            resolved_breached += 1
-            teams[team_name]["breached"] += 1
-            policies[policy_name]["breached"] += 1
-            if is_open:
-                resolution_breached_open += 1
-                breached_open_list.append({
-                    "id": ticket.id,
-                    "title": ticket.title,
-                    "hotel_name": hotel_name,
-                    "team_name": team_name,
-                    "policy_name": policy_name,
-                    "priority": priority_val,
-                    "resolution_deadline": eff_dl,
-                    "hours_diff": hours_diff,
-                })
-        elif is_resolved:
-            resolved_compliant += 1
-            teams[team_name]["compliant"] += 1
-            policies[policy_name]["compliant"] += 1
-        else:
-            # Ainda ativo
-            active_sla += 1
-            if 0 < hours_diff <= AT_RISK_HOURS:
-                at_risk += 1
-                at_risk_list.append({
-                    "id": ticket.id,
-                    "title": ticket.title,
-                    "hotel_name": hotel_name,
-                    "team_name": team_name,
-                    "policy_name": policy_name,
-                    "priority": priority_val,
-                    "resolution_deadline": eff_dl,
-                    "hours_diff": hours_diff,
-                })
+            continue  # breached_open é calculado separado
+        if not (0 < hours_diff <= AT_RISK_HOURS):
+            continue
 
-        teams[team_name]["total"] += 1
-        policies[policy_name]["total"] += 1
-        if r.policy:
-            policies[policy_name]["priority"] = policy_priority
-
-    total_resolved = resolved_compliant + resolved_breached
-    overall_pct = round((resolved_compliant / total_resolved * 100), 1) if total_resolved else 0.0
-    avg_response = round(sum(response_hours_list) / len(response_hours_list), 2) if response_hours_list else None
-
-    by_team = []
-    for name, d in sorted(teams.items(), key=lambda x: -x[1]["total"]):
-        t = d["total"]
-        c = d["compliant"]
-        b = d["breached"]
-        resolved = c + b
-        pct = round(c / resolved * 100, 1) if resolved else 0.0
-        avg_r = round(sum(d["response_hours"]) / len(d["response_hours"]), 2) if d["response_hours"] else None
-        by_team.append({"team_name": name, "total": t, "compliant": c, "breached": b, "compliance_pct": pct, "avg_response_hours": avg_r})
-
-    by_policy = []
-    for name, d in sorted(policies.items(), key=lambda x: -x[1]["total"]):
-        t = d["total"]
-        c = d["compliant"]
-        b = d["breached"]
-        resolved = c + b
-        pct = round(c / resolved * 100, 1) if resolved else 0.0
-        by_policy.append({"policy_name": name, "priority": d["priority"], "total": t, "compliant": c, "breached": b, "compliance_pct": pct})
-
+        at_risk_list.append({
+            "id": r.ticket_id,
+            "title": r.title,
+            "hotel_name": r.hotel_name,
+            "team_name": r.team_name,
+            "policy_name": r.policy_name,
+            "priority": r.priority,
+            "resolution_deadline": eff_dl,
+            "hours_diff": hours_diff,
+        })
     at_risk_list.sort(key=lambda x: x["hours_diff"])
+
+    # ── Tickets com SLA violado e ainda abertos ───────────────────────
+    breached_rows = db.execute(text("""
+        SELECT ts.ticket_id, ts.resolution_deadline, ts.total_paused_seconds, ts.paused_at,
+               t.title, t.priority,
+               COALESCE(h.name, '') AS hotel_name,
+               COALESCE(tm.name, 'Sem equipe') AS team_name,
+               COALESCE(sp.name, 'Sem política') AS policy_name
+        FROM ticket_sla ts
+        JOIN tickets t ON t.id = ts.ticket_id
+        LEFT JOIN hotels h ON h.id = t.hotel_id
+        LEFT JOIN teams tm ON tm.id = t.assigned_team_id
+        LEFT JOIN sla_policies sp ON sp.id = ts.policy_id
+        WHERE t.status = 'open' AND ts.resolution_breached = 1
+        ORDER BY ts.resolution_deadline ASC
+        LIMIT 25
+    """)).fetchall()
+
+    breached_open_list = []
+    for r in breached_rows:
+        dl = r.resolution_deadline
+        if dl.tzinfo is None:
+            dl = dl.replace(tzinfo=timezone.utc)
+        extra = r.total_paused_seconds or 0
+        if r.paused_at:
+            p = r.paused_at if r.paused_at.tzinfo else r.paused_at.replace(tzinfo=timezone.utc)
+            extra += max(0, int((now - p).total_seconds()))
+        eff_dl = dl + timedelta(seconds=extra)
+        breached_open_list.append({
+            "id": r.ticket_id,
+            "title": r.title,
+            "hotel_name": r.hotel_name,
+            "team_name": r.team_name,
+            "policy_name": r.policy_name,
+            "priority": r.priority,
+            "resolution_deadline": eff_dl,
+            "hours_diff": (eff_dl - now).total_seconds() / 3600,
+        })
     breached_open_list.sort(key=lambda x: x["hours_diff"])
 
     return {
         "summary": {
-            "total_with_sla": total_with_sla,
-            "active_sla": active_sla,
-            "resolution_breached_open": resolution_breached_open,
-            "at_risk": at_risk,
-            "overall_compliance_pct": overall_pct,
-            "avg_response_hours": avg_response,
+            "total_with_sla":           int(summary_row.total_with_sla or 0),
+            "active_sla":               int(summary_row.active_sla or 0),
+            "resolution_breached_open": int(summary_row.resolution_breached_open or 0),
+            "at_risk":                  len(at_risk_list),
+            "overall_compliance_pct":   overall_pct,
+            "avg_response_hours":       round(float(summary_row.avg_response_hours), 2) if summary_row.avg_response_hours else None,
         },
         "by_team": by_team,
         "by_policy": by_policy,
