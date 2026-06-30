@@ -69,8 +69,19 @@ async def _proxy_post(path: str, body: dict):
 
 
 @router.get("/status")
-async def qualitor_status(_=Depends(ensure_qualitor_access)):
-    return await _proxy_get("/qualitor/status")
+async def qualitor_status(
+    equipe: Optional[str] = Query(None),
+    situacao: Optional[str] = Query(None),
+    ativas_only: bool = Query(False),
+    responsavel_interno_id: Optional[int] = Query(None),
+    _=Depends(ensure_qualitor_access),
+):
+    params = {}
+    if equipe:                   params["equipe"] = equipe
+    if situacao:                 params["situacao"] = situacao
+    if ativas_only:              params["ativas_only"] = True
+    if responsavel_interno_id:   params["responsavel_interno_id"] = responsavel_interno_id
+    return await _proxy_get("/qualitor/status", params)
 
 
 @router.get("/tickets")
@@ -78,12 +89,17 @@ async def qualitor_tickets(
     situacao: Optional[str] = Query(None),
     equipe: Optional[str] = Query(None),
     responsavel_interno_id: Optional[int] = Query(None),
+    ativas_only: bool = Query(False),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
     current_user: UserModel = Depends(ensure_qualitor_access),
     db: Session = Depends(get_db),
 ):
-    params = {}
+    params: dict = {"page": page, "page_size": page_size}
     if situacao:
         params["situacao"] = situacao
+    if ativas_only:
+        params["ativas_only"] = True
     if responsavel_interno_id:
         params["responsavel_interno_id"] = responsavel_interno_id
 
