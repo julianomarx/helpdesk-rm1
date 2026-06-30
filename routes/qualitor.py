@@ -116,6 +116,12 @@ async def qualitor_tickets(
     return await _proxy_get("/qualitor/tickets", params)
 
 
+@router.post("/tickets/{ticket_id}/force-import")
+async def qualitor_force_import(ticket_id: int, user=Depends(ensure_qualitor_access)):
+    """Força importação de um ticket que não está no banco local (ex: encerrado antes do primeiro sync)."""
+    return await _proxy_post(f"/qualitor/tickets/{ticket_id}/force-import", {})
+
+
 @router.get("/tickets/{ticket_id}/history")
 async def qualitor_ticket_history(ticket_id: int, _=Depends(ensure_qualitor_access)):
     return await _proxy_get(f"/qualitor/tickets/{ticket_id}/history")
