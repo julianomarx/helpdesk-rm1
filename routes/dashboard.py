@@ -221,6 +221,7 @@ def _hd_by_team(period: str, db: Session) -> dict:
 
 
 def _hd_stalled(days_stalled: int, db: Session, limit: int = 25) -> dict:
+    # Fetch limit+1 to detect if there are more without a separate COUNT query
     rows = db.execute(text(f"""
         SELECT t.id, t.title AS titulo, tm.name AS equipe, t.status AS situacao,
           u.name AS responsavel, t.created_at AS dtabertura,
@@ -232,14 +233,16 @@ def _hd_stalled(days_stalled: int, db: Session, limit: int = 25) -> dict:
         WHERE t.status = 'open'
         GROUP BY t.id
         HAVING ultimo_acomp IS NULL OR ultimo_acomp < NOW() - INTERVAL {days_stalled} DAY
-        ORDER BY ultimo_acomp ASC LIMIT {limit}
+        ORDER BY ultimo_acomp ASC LIMIT {limit + 1}
     """)).fetchall()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
     return {"tickets": [
         {"id": r.id, "titulo": r.titulo, "equipe": r.equipe, "situacao": r.situacao,
          "responsavel": r.responsavel, "dtabertura": str(r.dtabertura) if r.dtabertura else None,
          "ultimo_acomp": str(r.ultimo_acomp) if r.ultimo_acomp else None}
         for r in rows
-    ]}
+    ], "has_more": has_more}
 
 
 def _merge_lists(key: str, *lists) -> list:
@@ -389,13 +392,17 @@ async def unified_stalled(
     db: Session = Depends(get_db),
 ):
     hd_tickets, qt_tickets = [], []
+    has_more = False
     if source in ("helpdesk", "all"):
-        hd_tickets = _hd_stalled(days, db, limit=limit).get("tickets", [])
+        hd_result = _hd_stalled(days, db, limit=limit)
+        hd_tickets = hd_result.get("tickets", [])
+        has_more = has_more or hd_result.get("has_more", False)
         for t in hd_tickets:
             t["portal"] = "helpdesk"
     if source in ("qualitor", "all"):
         qt_data = await _qualitor_stats("stalled", {"days": days, "limit": limit})
         qt_tickets = qt_data.get("tickets", [])
+        has_more = has_more or qt_data.get("has_more", False)
         for t in qt_tickets:
             t["portal"] = "qualitor"
 
@@ -403,7 +410,7 @@ async def unified_stalled(
         hd_tickets + qt_tickets,
         key=lambda x: (x.get("ultimo_acomp") or "0000"),
     )
-    return {"tickets": all_tickets, "total": len(all_tickets), "days": days, "source": source}
+    return {"tickets": all_tickets, "total": len(all_tickets), "has_more": has_more, "days": days, "source": source}
 
 
 @router.get("/unified/sla")
