@@ -19,7 +19,7 @@ from services.authorization import ensure_can_assign_agent, ensure_user_can_acce
 from services.permissions import can_update_ticket_field
 
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import or_, cast, String, select
+from sqlalchemy import or_, cast, String, select, func
 
 def get_ticket_service(
     ticket_id: int,
@@ -359,8 +359,45 @@ def list_tickets_service(
         ) if total else 0
     }
 
-def ticket_edit_service(    
-    ticket_id: int, 
+def ticket_stats_service(current_user: UserModel, db: Session) -> dict:
+    _QUALITOR_ONLY_TEAMS = {"RM1", "RM1 SAP"}
+
+    query = db.query(TicketModel.progress, func.count(TicketModel.id).label("cnt"))
+
+    if current_user.role == RoleEnum.admin:
+        pass
+    elif current_user.role == RoleEnum.agent:
+        team_subq = (
+            select(UserTeamModel.team_id)
+            .join(TeamModel, TeamModel.id == UserTeamModel.team_id)
+            .where(UserTeamModel.user_id == current_user.id, TeamModel.name.notin_(_QUALITOR_ONLY_TEAMS))
+        )
+        hotel_subq = select(UserHotelModel.hotel_id).where(UserHotelModel.user_id == current_user.id)
+        query = query.filter(
+            TicketModel.assigned_team_id.in_(team_subq),
+            TicketModel.hotel_id.in_(hotel_subq),
+        )
+    elif current_user.role in (RoleEnum.client_manager, RoleEnum.client_receptionist):
+        hotel_subq = select(UserHotelModel.hotel_id).where(UserHotelModel.user_id == current_user.id)
+        query = query.filter(TicketModel.hotel_id.in_(hotel_subq))
+    else:
+        return {"por_progress": {}, "total_open": 0}
+
+    query = query.filter(TicketModel.status == "open")
+    rows = query.group_by(TicketModel.progress).all()
+
+    por_progress = {}
+    total = 0
+    for progress, cnt in rows:
+        key = progress.value if hasattr(progress, "value") else str(progress)
+        por_progress[key] = cnt
+        total += cnt
+
+    return {"por_progress": por_progress, "total_open": total}
+
+
+def ticket_edit_service(
+    ticket_id: int,
     ticket_update: TicketUpdate,
     current_user: UserModel,
     db: Session
