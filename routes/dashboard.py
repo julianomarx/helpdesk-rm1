@@ -457,3 +457,11 @@ async def qualitor_teams_breakdown(
 ):
     """Proxy → qualitor API: resumo operacional por equipe (RM1 / RM1 SAP)."""
     return await _qualitor_stats("teams-breakdown", {})
+
+
+@router.get("/qualitor/stats/sla-nativo")
+async def qualitor_sla_nativo(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Proxy → qualitor API: SLA nativo (campos reais do Qualitor)."""
+    return await _qualitor_stats("sla-nativo", {})
