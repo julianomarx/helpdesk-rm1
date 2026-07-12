@@ -449,3 +449,11 @@ async def unified_sla(
         result["portais"]["qualitor"] = {**qt, "formal": False, "estimado": True}
 
     return result
+
+
+@router.get("/qualitor/stats/teams-breakdown")
+async def qualitor_teams_breakdown(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Proxy → qualitor API: resumo operacional por equipe (RM1 / RM1 SAP)."""
+    return await _qualitor_stats("teams-breakdown", {})
