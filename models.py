@@ -1,6 +1,6 @@
 from enum import Enum as PyEnum
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import Boolean, Column, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, Integer, String, TIMESTAMP, ForeignKey, Text, DateTime, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -381,3 +381,17 @@ class MuralAck(Base):
 
     post = relationship("MuralPost", back_populates="acks")
     user = relationship("User", back_populates="mural_acks")
+
+
+class SystemBackupReport(Base):
+    __tablename__ = "system_backup_reports"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    report_date  = Column(Date, nullable=False, index=True)
+    report_time  = Column(String(10))
+    status       = Column(String(10), nullable=False)  # "ok" | "error"
+    errors_count = Column(Integer, default=0)
+    total_size   = Column(String(20))
+    disk_free    = Column(String(20))
+    report_lines = Column(Text)  # JSON array de strings
+    received_at  = Column(DateTime(timezone=True), server_default=func.now())

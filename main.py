@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
-from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla, reports, notifications, todos, mural, qualitor
+from routes import users, tickets, comments, auth, hotels, teams, categories, subcategories, ticket_logs, attachments, dashboard, sla, reports, notifications, todos, mural, qualitor, admin_health
 
 from config import validate_env, UPLOADS_DIR, AVATAR_DIR, TICKETS_DIR
 
@@ -82,6 +82,7 @@ app.include_router(notifications.router)
 app.include_router(todos.router)
 app.include_router(mural.router)
 app.include_router(qualitor.router)
+app.include_router(admin_health.router)
 
 # Serve arquivos estáticos — aponta para diretório externo ao repositório
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")

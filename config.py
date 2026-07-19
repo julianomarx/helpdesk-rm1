@@ -10,6 +10,9 @@ REQUIRED_VARS = [
     "ACCESS_TOKEN_EXPIRE_MINUTES",
 ]
 
+import os
+BACKUP_REPORT_SECRET = os.getenv("BACKUP_REPORT_SECRET", "")
+
 def validate_env():
     missing = []
 
