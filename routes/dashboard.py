@@ -321,7 +321,7 @@ async def unified_volume(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    hd, qt = {"abertos": [], "fechados": [], "by_category": [], "by_subcategory": []}, {"abertos": [], "fechados": [], "by_category": []}
+    hd, qt = {"abertos": [], "fechados": [], "by_category": [], "by_subcategory": []}, {"abertos": [], "fechados": [], "by_category": [], "by_subcategory": []}
     if source in ("helpdesk", "all"):
         hd = _hd_volume(period, db)
     if source in ("qualitor", "all"):
@@ -336,11 +336,12 @@ async def unified_volume(
         (hd.get("abertos", []), hd.get("fechados", [])),
         (qt.get("abertos", []), qt.get("fechados", [])),
     )
-    by_category = _merge_lists("name", hd.get("by_category", []), qt.get("by_category", []))
+    by_category    = _merge_lists("name", hd.get("by_category",    []), qt.get("by_category",    []))
+    by_subcategory = _merge_lists("name", hd.get("by_subcategory", []), qt.get("by_subcategory", []))
     return {
         **merged,
         "by_category":    by_category,
-        "by_subcategory": hd.get("by_subcategory", []),
+        "by_subcategory": by_subcategory,
         "source": "all",
         "period": period,
     }
