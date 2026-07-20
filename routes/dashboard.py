@@ -183,7 +183,7 @@ def _hd_volume(period: str, db: Session) -> dict:
         SELECT s.name, COUNT(tk.id) AS count
         FROM tickets tk JOIN subcategories s ON tk.subcategory_id = s.id
         WHERE tk.status != 'cancelled'
-        GROUP BY s.id, s.name ORDER BY count DESC LIMIT 15
+        GROUP BY s.name ORDER BY count DESC LIMIT 15
     """)).fetchall()
     return {
         "abertos":        [{"dia": str(r.dia), "total": r.total} for r in abertos],
@@ -342,6 +342,7 @@ async def unified_volume(
         **merged,
         "by_category":    by_category,
         "by_subcategory": by_subcategory,
+        "by_hotel":       qt.get("by_hotel", []),
         "source": "all",
         "period": period,
     }
@@ -487,3 +488,12 @@ async def qualitor_sla_nativo(
 ):
     """Proxy → qualitor API: SLA nativo (campos reais do Qualitor)."""
     return await _qualitor_stats("sla-nativo", {})
+
+
+@router.get("/qualitor/stats/bottlenecks")
+async def qualitor_bottlenecks(
+    period: str = Query("30d"),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Proxy → qualitor API: gargalos (tempo médio por subcategoria e por hotel)."""
+    return await _qualitor_stats("bottlenecks", {"period": period})

@@ -232,7 +232,7 @@ def volume_dashboard_service(current_user, db):
         FROM tickets tk
         JOIN subcategories s ON tk.subcategory_id = s.id
         WHERE tk.status != 'cancelled'
-        GROUP BY s.id, s.name
+        GROUP BY s.name
         ORDER BY count DESC
         LIMIT 15
     """)).fetchall()
