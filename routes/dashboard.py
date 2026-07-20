@@ -173,9 +173,23 @@ def _hd_volume(period: str, db: Session) -> dict:
         FROM tickets WHERE status='closed' AND updated_at >= NOW() - INTERVAL {days} DAY
         GROUP BY dia ORDER BY dia
     """)).fetchall()
+    by_category = db.execute(text("""
+        SELECT c.name, COUNT(tk.id) AS count
+        FROM tickets tk JOIN categories c ON tk.category_id = c.id
+        WHERE tk.status != 'cancelled'
+        GROUP BY c.id, c.name ORDER BY count DESC LIMIT 15
+    """)).fetchall()
+    by_subcategory = db.execute(text("""
+        SELECT s.name, COUNT(tk.id) AS count
+        FROM tickets tk JOIN subcategories s ON tk.subcategory_id = s.id
+        WHERE tk.status != 'cancelled'
+        GROUP BY s.id, s.name ORDER BY count DESC LIMIT 15
+    """)).fetchall()
     return {
-        "abertos":  [{"dia": str(r.dia), "total": r.total} for r in abertos],
-        "fechados": [{"dia": str(r.dia), "total": r.total} for r in fechados],
+        "abertos":        [{"dia": str(r.dia), "total": r.total} for r in abertos],
+        "fechados":       [{"dia": str(r.dia), "total": r.total} for r in fechados],
+        "by_category":    [{"name": r.name, "count": r.count} for r in by_category],
+        "by_subcategory": [{"name": r.name, "count": r.count} for r in by_subcategory],
     }
 
 
@@ -307,7 +321,7 @@ async def unified_volume(
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    hd, qt = {"abertos": [], "fechados": []}, {"abertos": [], "fechados": []}
+    hd, qt = {"abertos": [], "fechados": [], "by_category": [], "by_subcategory": []}, {"abertos": [], "fechados": [], "by_category": []}
     if source in ("helpdesk", "all"):
         hd = _hd_volume(period, db)
     if source in ("qualitor", "all"):
@@ -322,7 +336,14 @@ async def unified_volume(
         (hd.get("abertos", []), hd.get("fechados", [])),
         (qt.get("abertos", []), qt.get("fechados", [])),
     )
-    return {**merged, "source": "all", "period": period}
+    by_category = _merge_lists("name", hd.get("by_category", []), qt.get("by_category", []))
+    return {
+        **merged,
+        "by_category":    by_category,
+        "by_subcategory": hd.get("by_subcategory", []),
+        "source": "all",
+        "period": period,
+    }
 
 
 @router.get("/unified/top-technicians")
