@@ -497,3 +497,11 @@ async def qualitor_bottlenecks(
 ):
     """Proxy → qualitor API: gargalos (tempo médio por subcategoria e por hotel)."""
     return await _qualitor_stats("bottlenecks", {"period": period})
+
+
+@router.get("/qualitor/stats/history")
+async def qualitor_history(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Proxy → qualitor API: histórico mensal de criados vs encerrados."""
+    return await _qualitor_stats("history", {})
