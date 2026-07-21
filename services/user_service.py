@@ -17,6 +17,16 @@ from sqlalchemy.orm import Session, selectinload
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
+def _assign_all_hotels(user_id: int, db: Session):
+    """Atribui todos os hotéis ao usuário — obrigatório para perfil agent."""
+    all_ids = {hid for (hid,) in db.query(HotelModel.id).all()}
+    existing = {hid for (hid,) in db.query(UserHotelModel.hotel_id).filter(UserHotelModel.user_id == user_id).all()}
+    to_add = all_ids - existing
+    if to_add:
+        db.bulk_insert_mappings(UserHotelModel, [{"user_id": user_id, "hotel_id": hid} for hid in to_add])
+    db.flush()
+
 def create_user_service(
     new_user: UserCreate, 
     db: Session,
@@ -46,7 +56,9 @@ def create_user_service(
     db.add(created_user)
     db.flush()
     
-    if new_user.hotel_ids:
+    if created_user.role == RoleEnum.agent:
+        _assign_all_hotels(created_user.id, db)
+    elif new_user.hotel_ids:
         hotel_ids = list(set(new_user.hotel_ids))
 
         ensure_hotels_exist(hotel_ids, db)
@@ -226,19 +238,6 @@ def list_users_service(
 
     elif current_user.role == RoleEnum.agent:
 
-        accessible_hotels = (
-            get_user_accessible_hotel_ids(
-                current_user.id,
-                db
-            )
-        )
-
-        query = query.filter(
-            UserModel.hotels.any(
-                UserHotelModel.hotel_id.in_(accessible_hotels)
-            )
-        )
-
         query = query.filter(
             UserModel.role.in_(
                 [
@@ -360,24 +359,23 @@ def get_user_service(
      
     if current_user.role == RoleEnum.admin:
         return target_user
-     
+
     if current_user.role == RoleEnum.client_receptionist:
         raise HTTPException(status_code=403, detail="User not found")
-    
+
+    if current_user.role == RoleEnum.agent:
+        if target_user.role == RoleEnum.admin:
+            raise HTTPException(status_code=403, detail="User not found")
+        return target_user
+
     accessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
-    
+
     if not any(
         uh.hotel_id in accessible_hotels
         for uh in target_user.hotels
     ):
         raise HTTPException(status_code=403, detail="User not found")
 
-    if current_user.role == RoleEnum.agent: 
-        if target_user.role == RoleEnum.admin:
-            raise HTTPException(status_code=403, detail="User not found")
-        
-        return target_user
-    
     if current_user.role == RoleEnum.client_manager:
         accessible_roles = [
             RoleEnum.client_manager, RoleEnum.client_receptionist
@@ -425,28 +423,33 @@ def update_user_service(
     
     if current_user.role == RoleEnum.admin:
         pass
-    
+
+    elif current_user.role == RoleEnum.agent:
+        allowed_roles = [RoleEnum.client_manager, RoleEnum.client_receptionist]
+        if target_user.role not in allowed_roles:
+            raise HTTPException(status_code=404, detail="User not found")
+
     elif current_user.role == RoleEnum.client_manager:
-        
+
         acessible_hotels = get_user_accessible_hotel_ids(current_user.id, db)
-        
+
         if not any(
             uh.hotel_id in acessible_hotels
             for uh in target_user.hotels
         ):
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         allowed_roles = [
             RoleEnum.client_manager,
             RoleEnum.client_receptionist
         ]
-        
+
         if target_user.role not in allowed_roles:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
     else:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     update_fields = user_update.model_dump(exclude_unset=True)
     
     if "name" in update_fields and update_fields["name"] == target_user.name:
@@ -469,7 +472,10 @@ def update_user_service(
             
     for field_to_update, field_value in update_fields.items():
         setattr(target_user, field_to_update, field_value)
-        
+
+    if update_fields.get("role") == RoleEnum.agent:
+        _assign_all_hotels(target_user.id, db)
+
     return target_user
 
 def delete_user_service(
