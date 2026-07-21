@@ -505,3 +505,11 @@ async def qualitor_history(
 ):
     """Proxy → qualitor API: histórico mensal de criados vs encerrados."""
     return await _qualitor_stats("history", {})
+
+
+@router.get("/qualitor/stats/operational")
+async def qualitor_operational(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Proxy → qualitor API: cards operacionais (críticos, aguardando confirmação, suspensos)."""
+    return await _qualitor_stats("operational", {})
