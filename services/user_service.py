@@ -427,7 +427,10 @@ def update_user_service(
     elif current_user.role == RoleEnum.agent:
         allowed_roles = [RoleEnum.client_manager, RoleEnum.client_receptionist]
         if target_user.role not in allowed_roles:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        new_role = user_update.model_dump(exclude_unset=True).get("role")
+        if new_role and new_role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Agent não pode promover usuário para admin ou agent")
 
     elif current_user.role == RoleEnum.client_manager:
 
