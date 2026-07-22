@@ -32,8 +32,11 @@ async def lifespan(app: FastAPI):
     import asyncio
 
     def _ping():
-        with engine.connect() as c:
-            c.execute(text("SELECT 1"))
+        try:
+            with engine.connect() as c:
+                c.execute(text("SELECT 1"))
+        except Exception:
+            pass  # warmup é best-effort; falha não impede o startup
 
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor(max_workers=5) as ex:
