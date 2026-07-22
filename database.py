@@ -24,9 +24,9 @@ engine = create_engine(
     pool_size=5,
     max_overflow=5,
     pool_pre_ping=True,
-    pool_recycle=900,   # recicla antes do wait_timeout do MySQL (evita conexão morta silenciosa)
-    pool_timeout=15,
-    connect_args={"connection_timeout": 5},  # falha rápido se MySQL não responder
+    pool_recycle=900,
+    pool_timeout=45,
+    connect_args={"connection_timeout": 40},
 )
 
 
