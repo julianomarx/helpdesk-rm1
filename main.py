@@ -35,11 +35,9 @@ async def lifespan(app: FastAPI):
         with engine.connect() as c:
             c.execute(text("SELECT 1"))
 
-    pool_size = getattr(engine.pool, '_pool', None)
-    n = pool_size.maxsize if pool_size and hasattr(pool_size, 'maxsize') else 5
     loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=n) as ex:
-        await asyncio.gather(*[loop.run_in_executor(ex, _ping) for _ in range(n)])
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        await asyncio.gather(*[loop.run_in_executor(ex, _ping) for _ in range(5)])
 
     yield
 
