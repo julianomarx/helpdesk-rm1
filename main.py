@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
@@ -21,12 +22,34 @@ from database import Base, engine
 if os.getenv("ENV") == "dev":
     Base.metadata.create_all(bind=engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pré-aquece o pool de conexões do banco para evitar lentidão após reinicialização.
+    # Abre pool_size conexões simultâneas antes de aceitar requests.
+    from database import engine
+    from sqlalchemy import text
+    from concurrent.futures import ThreadPoolExecutor
+    import asyncio
+
+    def _ping():
+        with engine.connect() as c:
+            c.execute(text("SELECT 1"))
+
+    pool_size = getattr(engine.pool, '_pool', None)
+    n = pool_size.maxsize if pool_size and hasattr(pool_size, 'maxsize') else 5
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        await asyncio.gather(*[loop.run_in_executor(ex, _ping) for _ in range(n)])
+
+    yield
+
 # Inicializa app
 app = FastAPI(
     title="Helpdesk Portal",
     version="1.0.0",
     root_path="/api",
-    redirect_slashes=False
+    redirect_slashes=False,
+    lifespan=lifespan,
 )
 
 def custom_openapi():
